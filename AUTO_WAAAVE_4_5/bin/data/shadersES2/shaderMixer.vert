@@ -8,8 +8,7 @@ attribute vec2 texcoord;
 
 varying vec2 texCoordVarying;
 
-void main()
-{
-    texCoordVarying = texcoord;
-    gl_Position = modelViewProjectionMatrix * position;
+void main() {
+  texCoordVarying = texcoord;
+  gl_Position = modelViewProjectionMatrix * position;
 }
