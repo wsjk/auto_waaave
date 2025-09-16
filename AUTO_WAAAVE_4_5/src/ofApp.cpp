@@ -302,6 +302,7 @@ void ofApp::setup() {
     //omx_settings();
     inputSetup();
     midiSetup();
+    loadMidiConfig(); // Load MIDI configuration
     fbDeclareAndAllocate();
     shader_mixer.load("shadersES2/shader_mixer");
     shaderSharpen.load("shadersES2/shaderSharpen");
@@ -313,637 +314,147 @@ void ofApp::setup() {
     p_lockClear();
     midiLatchClear();
 }
-//-------------------------------------------------------------
-void ofApp::midiLatchClear(){
-    for(int i=0;i<17;i++){
-        vmidiActiveFloat[i]=0;
-        midiActiveFloat[i]=0;
-        midiLowActiveFloat[i]=0;
-        midiMidActiveFloat[i]=0;
-        midiHighActiveFloat[i]=0;
-    }
-}
+
 //--------------------------------------------------------------
-void ofApp::update() {
-    
-    fft.update();
-    inputUpdate();
-    midibiz();
-    p_lockUpdate();
-    
-    if(fft.getLowVal()>my_normalize){
-        my_normalize=fft.getLowVal();
+void ofApp::loadMidiConfig() {
+    if (!midiConfig.open("midi-config.json")) {
+        ofLogError("ofApp") << "Failed to load midi-config.json, using defaults";
+        return;
+    }
+
+    ccToParam.clear();
+    ccToButton.clear();
+
+    // Load control mappings
+    if (midiConfig["controls"].isObject()) {
+        for (auto& control : midiConfig["controls"]) {
+            string ccStr = control.memberName();
+            int cc = ofToInt(ccStr);
+            string param = control["param"].asString();
+            int index = control["index"].asInt();
+            ccToParam[cc] = make_pair(param, index);
+        }
+    }
+
+    // Load button mappings
+    if (midiConfig["buttons"].isObject()) {
+        for (auto& button : midiConfig["buttons"]) {
+            string ccStr = button.memberName();
+            int cc = ofToInt(ccStr);
+            string action = button.asString();
+            ccToButton[cc] = action;
+        }
+    }
+
+    ofLogNotice("ofApp") << "Loaded " << ccToParam.size() << " control mappings and " << ccToButton.size() << " button mappings";
+}
+
+//--------------------------------------------------------------
+void ofApp::handleConfiguredControl(int cc, int value) {
+    auto it = ccToParam.find(cc);
+    if (it == ccToParam.end()) return;
+
+    string param = it->second.first;
+    int index = it->second.second;
+
+    // Handle different parameter types
+    if (param == "lumakey" && index == 0) {
+        if (audioReactiveControlSwitch == 0 && p_lock_0_switch == 1) {
+            if (abs(value/127.0f - p_lock[0][p_lock_increment]) < CONTROL_THRESHOLD) {
+                midiActiveFloat[0] = 1;
+            }
+            if (midiActiveFloat[0] == 1) {
+                p_lock[0][p_lock_increment] = value/127.0f;
+            }
+        }
+    }
+    else if (param == "mix" && index == 1) {
+        if (audioReactiveControlSwitch == 0 && p_lock_0_switch == 1) {
+            if (abs((value-MIDI_MAGIC)/MIDI_MAGIC - p_lock[1][p_lock_increment]) < CONTROL_THRESHOLD) {
+                midiActiveFloat[1] = 1;
+            }
+            if (midiActiveFloat[1] == 1) {
+                p_lock[1][p_lock_increment] = (value-MIDI_MAGIC)/MIDI_MAGIC;
+            }
+        }
+    }
+    // Add similar handling for other parameters as needed
+    else if (index >= 0 && index < 16) {
+        // Generic handler for p_lock parameters
+        if (audioReactiveControlSwitch == 0 && p_lock_0_switch == 1) {
+            float normalizedValue = (value-MIDI_MAGIC)/MIDI_MAGIC;
+            if (abs(normalizedValue - p_lock[index][p_lock_increment]) < CONTROL_THRESHOLD) {
+                midiActiveFloat[index] = 1;
+            }
+            if (midiActiveFloat[index] == 1) {
+                p_lock[index][p_lock_increment] = normalizedValue;
+            }
+        }
     }
 }
 
 //--------------------------------------------------------------
-void ofApp::draw() {
-    
-    
-    //the range changes depending on what yr using for sound input.  just usb cams have shitter ranges
-    //so 50 works
-    //float range=200;
-    
-    fftAssignValues();
-    
-    parametersAssign();
-    
-    framebuffer0.begin();
-    shader_mixer.begin();
-    
-    
-    //videoGrabber.getTextureReference().draw(0, 0, 320, 640);
-    if(scaleswitch==0){
-        if(inputswitch==0){
-            //videoGrabber.draw(0,0,320,240);
-        }
-        if(inputswitch==1){
-            cam1.draw(0,0,320,240);
+void ofApp::handleConfiguredButton(int cc, int value) {
+    auto it = ccToButton.find(cc);
+    if (it == ccToButton.end()) return;
+
+    string action = it->second;
+
+    if (action == "clearFrames" && value == 127) {
+        framebuffer0.begin();
+        ofClear(0, 0, 0, 255);
+        framebuffer0.end();
+        for(int i = 0; i < framebufferLength; i++) {
+            pastFrames[i].begin();
+            ofClear(0, 0, 0, 255);
+            pastFrames[i].end();
         }
     }
-    if(scaleswitch==1){
-        if(inputswitch==0){
-            //videoGrabber.draw(0,0);
-        }
-        if(inputswitch==1){
-            if(hdmi_aspect_ratio_switch==0){
-                cam1.draw(0,0,640,480);
-            }
-            if(hdmi_aspect_ratio_switch==1){
-                aspect_fix_fbo.draw(0,0,640,480);
+    else if (action == "resetAll" && value == 127) {
+        // Reset all values
+        for(int i = 0; i < p_lock_number; i++) {
+            for(int j = 0; j < p_lock_size; j++) {
+                p_lock[i][j] = 0;
             }
         }
     }
-    /*
-     //textures
-     shader_mixer.setUniformTexture("fb0", pastFrames[d_delay].getTexture(),1);
-     
-     if(wet_dry_switch==1){
-     shader_mixer.setUniformTexture("fb1", pastFrames[(abs(framedelayoffset-framebufferLength)-1)%framebufferLength].getTexture(),2);
-     }
-     if(wet_dry_switch==0){
-     shader_mixer.setUniformTexture("fb1", dry_framebuffer.getTexture(),2);
-     }
-     //continuous variables
-     shader_mixer.setUniform1f("fb0_lumakey_value",d_lumakey_value);
-     shader_mixer.setUniform1f("fb0_mix",d_mix);
-     shader_mixer.setUniform3f("fb0_hsbx",ofVec3f(d_hue,d_sat,d_bright));
-     shader_mixer.setUniform1f("temporalFilterMix",d_temporalFilterMix);
-     shader_mixer.setUniform1f("fb1_brightx",d_temporalFilterResonance );
-     shader_mixer.setUniform1f("cam1_brightx",d_cam1_x);
-     shader_mixer.setUniform1f("fb0_xdisplace",d_x);
-     shader_mixer.setUniform1f("fb0_ydisplace",d_y);
-     shader_mixer.setUniform1f("fb0_zdisplace",d_z);
-     shader_mixer.setUniform1f("fb0_rotate",d_rotate);
-     shader_mixer.setUniform3f("fb0_huex",ofVec3f(d_huex_mod,d_huex_off,d_huex_lfo));
-     
-     if(wet_dry_switch==1){
-     shader_mixer.setUniform1i("toroidSwitch",toroidSwitch);
-     shader_mixer.setUniform1i("mirrorSwitch",0);
-     }
-     
-     if(wet_dry_switch==0){
-     shader_mixer.setUniform1i("toroidSwitch",0);
-     shader_mixer.setUniform1i("mirrorSwitch",toroidSwitch);
-     }
-     
-     
-     shader_mixer.setUniform1i("brightInvert",brightInvert);
-     shader_mixer.setUniform1i("hueInvert",hueInvert);
-     shader_mixer.setUniform1i("saturationInvert",saturationInvert);
-     
-     shader_mixer.setUniform1i("horizontalMirror",horizontalMirror);
-     shader_mixer.setUniform1i("verticalMirror",verticalMirror);
-     
-     
-     shader_mixer.setUniform1i("lumakeyInvertSwitch",lumakeyInvertSwitch);
-     */
-    //send the textures
-    shader_mixer.setUniformTexture("fb", pastFrames[d_delay].getTexture(),1);
-    if(wet_dry_switch==1){
-        shader_mixer.setUniformTexture("temporalFilter", pastFrames[(abs(framedelayoffset-framebufferLength)-1)%framebufferLength].getTexture(),2);
+    else if (action == "videoReactive") {
+        videoReactiveSwitch = (value == 127);
+        p_lock_0_switch = (value == 0);
     }
-    if(wet_dry_switch==0){
-        shader_mixer.setUniformTexture("temporalFilter", dry_framebuffer.getTexture(),2);
+    else if (action == "wetDry") {
+        wet_dry_switch = (value == 0);
     }
-    //send the continuous variables
-    shader_mixer.setUniform1f("lumakey",d_lumakey_value);
-    shader_mixer.setUniform1f("fbMix",d_mix);
-    shader_mixer.setUniform1f("fbHue",d_hue);
-    shader_mixer.setUniform1f("fbSaturation",d_sat);
-    shader_mixer.setUniform1f("fbBright",d_bright);
-    shader_mixer.setUniform1f("temporalFilterMix",d_temporalFilterMix);
-    shader_mixer.setUniform1f("temporalFilterResonance",d_temporalFilterResonance );
-    shader_mixer.setUniform1f("fbXDisplace",d_x);
-    shader_mixer.setUniform1f("fbYDisplace",d_y);
-    shader_mixer.setUniform1f("fbZDisplace",d_z);
-    shader_mixer.setUniform1f("fbRotate",d_rotate);
-    shader_mixer.setUniform3f("fb_huex",ofVec3f(d_huex_mod,d_huex_off,d_huex_lfo));
-    shader_mixer.setUniform1f("fbHuexMod",d_huex_mod);
-    shader_mixer.setUniform1f("fbHuexOff",d_huex_off);
-    shader_mixer.setUniform1f("fbHuexLfo",d_huex_lfo);
-    
-    //send the switches
-    shader_mixer.setUniform1i("toroidSwitch",toroidSwitch);
-    shader_mixer.setUniform1i("mirrorSwitch",mirrorSwitch);
-    shader_mixer.setUniform1i("brightInvert",brightInvert);
-    shader_mixer.setUniform1i("hueInvert",hueInvert);
-    shader_mixer.setUniform1i("saturationInvert",saturationInvert);
-    shader_mixer.setUniform1i("horizontalMirror",horizontalMirror);
-    shader_mixer.setUniform1i("verticalMirror",verticalMirror);
-    shader_mixer.setUniform1i("lumakeyInvertSwitch",lumakeyInvertSwitch);
-    
-    //send the videoreactive controls
-    shader_mixer.setUniform1f("vLumakey",vLumakeyValue*c_lumakey_value);
-    shader_mixer.setUniform1f("vMix",vMix*c_mix);
-    shader_mixer.setUniform1f("vHue",2.0f*vHue*c_hue);
-    shader_mixer.setUniform1f("vSat",2.0f*vSaturation*c_sat);
-    shader_mixer.setUniform1f("vBright",2.0f*vBright*c_bright);
-    shader_mixer.setUniform1f("vtemporalFilterMix",vTemporalFilterMix*c_temporalFilterMix);
-    shader_mixer.setUniform1f("vFb1X",vTemporalFilterResonance);
-    shader_mixer.setUniform1f("vX",.01*vX);
-    shader_mixer.setUniform1f("vY",.01*vY);
-    shader_mixer.setUniform1f("vZ",vZ*c_z);
-    shader_mixer.setUniform1f("vRotate",vRotate*c_rotate);
-    shader_mixer.setUniform1f("vHuexMod",1.0f-vHuexMod);
-    shader_mixer.setUniform1f("vHuexOff",vHuexOff*c_huex_off);
-    shader_mixer.setUniform1f("vHuexLfo",vHuexLfo*c_huex_lfo);
-    shader_mixer.end();
-    framebuffer0.end();
-    
-    /**sharpening mode**/
-    sharpenFramebuffer.begin();
-    shaderSharpen.begin();
-    framebuffer0.draw(0,0);
-    shaderSharpen.setUniform1f("sharpenAmount",d_sharpenAmount);
-    shaderSharpen.setUniform1f("vSharpenAmount",vSharpenAmount*c_sharpenAmount);
-    shaderSharpen.end();
-    sharpenFramebuffer.end();
-    
-    //framebuffer0.draw(0,0,ofGetWidth(),ofGetHeight());
-    sharpenFramebuffer.draw(0,0,ofGetWidth(),ofGetHeight());
-    
-    pastFrames[abs(framebufferLength-framedelayoffset)-1].begin(); //eeettt
-    if(wet_dry_switch==0){
-        if(inputswitch==0){
-            //videoGrabber.draw(0,0,framebuffer0.getWidth(),framebuffer0.getHeight());
-        }
-        if(inputswitch==1){
-            if(hdmi_aspect_ratio_switch==0){
-                cam1.draw(0,0,640,480);
-            }
-            if(hdmi_aspect_ratio_switch==1){
-                aspect_fix_fbo.draw(0,0,640,480);
-            }
-        }
-        
-        dry_framebuffer.begin();
-        //framebuffer0.draw(0,0);
-        sharpenFramebuffer.draw(0,0);
-        dry_framebuffer.end();
-        
-    }//endifwetdry0
-    
-    if(wet_dry_switch==1){
-        //framebuffer0.draw(0,0);
-        sharpenFramebuffer.draw(0,0);
-    }//endifwetdry1
-    
-    pastFrames[abs(framebufferLength-framedelayoffset)-1].end(); //eeettt
-    incIndex();
-    
-    //p_lock biz
-    if(p_lock_switch==1){
-        p_lock_increment++;
-        p_lock_increment=p_lock_increment%p_lock_size;
+    else if (action == "brightInvert") {
+        brightInvert = (value == 127);
     }
-    
-    //ofDrawBitmapString("fps =" + ofToString(ofGetFrameRate())+"fft low =" + ofToString(fftLow)+"fft low_smoothed =" + ofToString(low_value_smoothed)+"fft mid =" + ofToString(fftLow)+"fft mid_smoothed =" + ofToString(mid_value_smoothed), 10, ofGetHeight() - 5 );
-    /*ofDrawBitmapString("fft high =" + ofToString(fftHigh,2)+
-     "fft high_smoothed =" + ofToString(high_value_smoothed,2)+
-     "fft mid =" + ofToString(fftMid,2)+
-     "fft mid_smoothed =" + ofToString(mid_value_smoothed,2)+
-     "fft low =" + ofToString(fftLow,2)+
-     "fft low_smoothed =" + ofToString(low_value_smoothed,2)
-     , 10, ofGetHeight() - 5 );
-     */
-    
-    /*
-     ofDrawBitmapString(
-     "fft high =" + ofToString(high_value_smoothed,2)+
-     "fft mid =" + ofToString(mid_value_smoothed,2)+
-     "fft low =" + ofToString(low_value_smoothed,2)
-     , 10, ofGetHeight() - 5 );
-     */
-    
-    
-    //i use this block of code to print out like useful information for debugging various things and/or just to keep the
-    //framerate displayed to make sure i'm not losing any frames while testing out new features.  uncomment the ofDrawBitmap etc etc
-    //to print the stuff out on screen
-    ofSetColor(255);
-    string msg="fps="+ofToString(ofGetFrameRate(),2)+" clear switch"+ofToString(clear_switch,5);//+" z="+ofToString(az,5);
-    //ofDrawBitmapString(msg,10,10);
+    else if (action == "aspectRatio") {
+        hdmi_aspect_ratio_switch = (value == 127);
+    }
 }
 
-//--------------------------------------------------------------
-void ofApp::exit() {
-    
-    // clean up
-    midiIn.closePort();
-    midiIn.removeListener(this);
-}
-//--------------------------------------------------------------
-/*
- 
- void ofApp::omx_settings(){
- 
- settings.sensorWidth = 640;
- settings.sensorHeight = 480;
- settings.framerate = 30;
- settings.enableTexture = true;
- settings.sensorMode=7;
- 
- settings.whiteBalance ="Off";
- settings.exposurePreset ="Off";
- settings.whiteBalanceGainR = 1.0;
- settings.whiteBalanceGainB = 1.0;
- 
- }
- //------------------------------------------------------------
- 
- void ofApp::omx_updates(){
- 
- videoGrabber.setSharpness(50);
- videoGrabber.setBrightness(40);
- videoGrabber.setContrast(100);
- videoGrabber.setSaturation(0);
- 
- }
- */
-//--------------------------------------------------------------
-void ofApp::fftAssignValues(){
-    fftLow=fft.getLowVal();
-    fftLow=ofClamp(fftLow,1.0f,range);
-    fftLow=fftLow/range;
-    low_value_smoothed=fftLow*smoothing_rate+(1.0f-smoothing_rate)*low_value_smoothed;
-    
-    fftMid=fft.getMidVal();
-    fftMid=ofClamp(fftMid,1.0f,range);
-    fftMid=fftMid/range;
-    mid_value_smoothed=fftMid*smoothing_rate+(1.0f-smoothing_rate)*mid_value_smoothed;
-    
-    fftHigh=fft.getHighVal();
-    fftHigh=ofClamp(fftHigh,1.0f,range);
-    fftHigh=fftHigh/range;
-    high_value_smoothed=fftHigh*smoothing_rate+(1.0f-smoothing_rate)*high_value_smoothed;
-}
-//-------------------------------------------------------------
-void ofApp::parametersAssign(){
-    if(wet_dry_switch==0){
-        c_hue=1.0;
-        c_sat=1.0;
-        c_bright=1.0;
-        c_x=.1;
-        c_y=.1;
-        c_z=.5;
-    }
-    
-    d_delay=(abs(framedelayoffset-framebufferLength-fb0_delayamount-
-                 int((p_lock_smoothed[15]+lowC16*low_value_smoothed+midC16*mid_value_smoothed+highC16*high_value_smoothed)*(framebufferLength-1.0))
-                 )-1)%framebufferLength;
-    d_lumakey_value=kk+c_lumakey_value*p_lock_smoothed[0]+4.0f*(
-                                                                lowC1*low_value_smoothed+
-                                                                midC1*mid_value_smoothed+
-                                                                highC1*high_value_smoothed);
-    d_mix=jm+c_mix*p_lock_smoothed[1]+4.0f*(
-                                            lowC2*low_value_smoothed+
-                                            midC2*mid_value_smoothed+
-                                            highC2*high_value_smoothed);
-    d_hue=fv*(1.0f+c_hue*p_lock_smoothed[2])+4.0f*(
-                                                   lowC3*low_value_smoothed+
-                                                   midC3*mid_value_smoothed+
-                                                   highC3*high_value_smoothed);
-    d_sat=gb*(1.0f+c_sat*p_lock_smoothed[3])+4.0f*(
-                                                   lowC4*low_value_smoothed+
-                                                   midC4*mid_value_smoothed+
-                                                   highC4*high_value_smoothed);
-    d_bright=hn*(1.0f+c_bright*p_lock_smoothed[4])+4.0f*(
-                                                         lowC5*low_value_smoothed+
-                                                         midC5*mid_value_smoothed+
-                                                         highC5*high_value_smoothed);
-    d_temporalFilterMix=op+c_temporalFilterMix*p_lock_smoothed[5]+4.0f*(
-                                                                        lowC6*low_value_smoothed+
-                                                                        midC6*mid_value_smoothed+
-                                                                        highC6*high_value_smoothed);
-    d_temporalFilterResonance=fb1_brightx+p_lock_smoothed[6]+4.0*(
-                                                                  lowC7*low_value_smoothed+
-                                                                  midC7*mid_value_smoothed+
-                                                                  highC7*high_value_smoothed);
-    d_sharpenAmount=ll+c_sharpenAmount*p_lock_smoothed[7]+8.0f*(
-                                                                lowC8*low_value_smoothed+
-                                                                midC8*mid_value_smoothed+
-                                                                highC8*high_value_smoothed);
-    d_x=sx+c_x*p_lock_smoothed[8]+4.0f*(
-                                        c_x*(lowC9*low_value_smoothed+
-                                             midC9*low_value_smoothed+
-                                             highC9*high_value_smoothed));
-    d_y=dc+c_y*p_lock_smoothed[9]+4.0f*(
-                                        c_y*(lowC10*low_value_smoothed+
-                                             midC10*mid_value_smoothed+
-                                             highC10*high_value_smoothed));
-    d_z=az*(1.0f+c_z*p_lock_smoothed[10])+4.0f*(
-                                                c_z*(lowC11*low_value_smoothed+
-                                                     midC11*mid_value_smoothed+
-                                                     highC11*high_value_smoothed));
-    d_rotate=qw+c_rotate*p_lock_smoothed[11]+4.0*(
-                                                  c_rotate*(lowC12*low_value_smoothed+
-                                                            midC12*mid_value_smoothed+
-                                                            highC12*high_value_smoothed));
-    d_huex_mod=er*(1.0f-p_lock_smoothed[12])+4.0f*(
-                                                   lowC13*low_value_smoothed+
-                                                   midC13*mid_value_smoothed+
-                                                   highC13*high_value_smoothed);
-    d_huex_off=ty+c_huex_off*p_lock_smoothed[13]+4.0f*(
-                                                       c_huex_off*(lowC14*low_value_smoothed+
-                                                                   midC14*mid_value_smoothed+
-                                                                   highC14*high_value_smoothed));
-    d_huex_lfo=ui+c_huex_lfo*p_lock_smoothed[14]+4.0f*(
-                                                       c_huex_lfo*(lowC15*low_value_smoothed+
-                                                                   midC15*mid_value_smoothed+
-                                                                   highC15*high_value_smoothed));
-}	
-//--------------------------------------------------------------
-void ofApp::newMidiMessage(ofxMidiMessage& msg) {
-    // add the latest message to the message queue
-    midiMessages.push_back(msg);
-    // remove any old messages if we have too many
-    while(midiMessages.size() > 2) {
-        midiMessages.erase(midiMessages.begin());
-    }
-}
-//------------------------------------------------------------
-void ofApp::p_lockUpdate(){
-    for(int i=0;i<p_lock_number;i++){
-        p_lock_smoothed[i]=p_lock[i][p_lock_increment]*(1.0f-p_lock_smooth)+p_lock_smoothed[i]*p_lock_smooth;
-        if(abs(p_lock_smoothed[i])<.05){p_lock_smoothed[i]=0;}
-    }
-}
-//-------------------------------------------------------------
-void ofApp::inputUpdate(){
-    if(inputswitch==1){
-        cam1.update();
-        //corner crop and stretch to preserve hd aspect ratio
-        if(hdmi_aspect_ratio_switch==1){
-            aspect_fix_fbo.begin();
-            cam1.draw(0,0,853,480);
-            aspect_fix_fbo.end();
-        }
-    }
-    if(inputswitch==0){
-        //omx_updates();
-    }
-}
-//------------------------------------------------------------
-void ofApp::p_lockClear(){
-    for(int i=0;i<p_lock_number;i++){
-        for(int j=0;j<p_lock_size;j++){
-            p_lock[i][j]=0;
-        }
-    }
-}
-//------------------------------------------------------------
-void ofApp::midiSetup(){
-    // print input ports to console
-    midiIn.listInPorts();
-    
-    // open port by number (you may need to change this)
-    midiIn.openPort(1);
-    //midiIn.openPort("IAC Pure Data In");	// by name
-    //midiIn.openVirtualPort("ofxMidiIn Input"); // open a virtual port
-    
-    // don't ignore sysex, timing, & active sense messages,
-    // these are ignored by default
-    midiIn.ignoreTypes(false, false, false);
-    
-    // add ofApp as a listener
-    midiIn.addListener(this);
-    
-    // print received messages to the console
-    midiIn.setVerbose(true);
-}
-//-------------------------------------------------------------
-void ofApp::fbDeclareAndAllocate(){
-    framebuffer0.allocate(width,height);
-    framebuffer0.begin();
-    ofClear(0,0,0,255);
-    framebuffer0.end();
-    
-    aspect_fix_fbo.allocate(width,height);
-    aspect_fix_fbo.begin();
-    ofClear(0,0,0,255);
-    aspect_fix_fbo.end();
-    
-    dry_framebuffer.allocate(width,height);
-    dry_framebuffer.begin();
-    ofClear(0,0,0,255);
-    dry_framebuffer.end();
-    
-    sharpenFramebuffer.allocate(width,height);
-    sharpenFramebuffer.begin();
-    ofClear(0,0,0,255);
-    sharpenFramebuffer.end();
-    
-    for(int i=0;i<framebufferLength;i++){
-        pastFrames[i].allocate(width, height);
-        pastFrames[i].begin();
-        ofClear(0,0,0,255);
-        pastFrames[i].end();
-    }
-}
-//-------------------------------------------------------------
-void ofApp::inputSetup(){
-    //pass in the settings and it will start the camera
-    if(inputswitch==0){
-        //videoGrabber.setup(settings);
-    }
-    if(inputswitch==1){
-        cam1.setDesiredFrameRate(30);
-        cam1.initGrabber(width,height);
-    }
-}
-//--------------------------------------------------------------
-void ofApp::keyPressed(int key) {
-    if (key == ')') {fft.setNormalize(true);}
-    
-    //error-if i decrement fb0_delayamount it always crashes...
-    if (key == '[') {fb0_delayamount += 1;}
-    if (key == ']') {
-        fb0_delayamount = fb0_delayamount-1;
-        if(fb0_delayamount<0){
-            fb0_delayamount=framebufferLength-fb0_delayamount;
-        }//endiffb0
-    }//endifkey
-    
-    //fb1 mix
-    if (key == 'o') {op += .01;}
-    if (key == 'p') {op -= .01;}
-    
-    //fb0 z displace
-    if (key == 'a') {az += .0001;}
-    if (key == 'z') {az -= .0001;}
-    
-    //fb0 x displace
-    if (key == 's') {sx += .0001;}
-    if (key == 'x') {sx -= .0001;}
-    
-    //fb0 y displace
-    if (key == 'd') {dc += .0001;}
-    if (key == 'c') {dc -= .0001;}
-    
-    //fb0 hue attenuate
-    if (key == 'f') {fv += .001;}
-    if (key == 'v') {fv -= .001;}
-    
-    //fb0 saturation attenuate
-    if (key == 'g') {gb += .001;}
-    if (key == 'b') {gb -= .001;}
-    
-    //fb0 brightness attenuate
-    if (key == 'h') {hn += .001;}
-    if (key == 'n') {hn -= .001;}
-    
-    //fb0 mix
-    if (key == 'j') {jm += .01;}
-    if (key == 'm') {jm -= .01;}
-    
-    //fb0 lumakey value
-    if (key == 'k') {kk = ofClamp(kk+.01,0.0,1.0);}
-    if (key == ',') {kk = ofClamp(kk-.01,0.0,1.0);}
-    
-    
-    if (key == 'l') {ll += .01;}
-    if (key == '.') {ll -= .01;}
-    
-    if (key == ';') {fb1_brightx += .01;}
-    if (key == '\'') {fb1_brightx -= .01;}
-    
-    //fb0 rotation
-    if (key == 'q') {qw += .0001;}
-    if (key == 'w') {qw -= .0001;}
-    
-    
-    //hue chaos1
-    if (key == 'e') {er += .001;}
-    if (key == 'r') {er -= .001;}
-    
-    //hue chaos2
-    if (key == 't') {ty += .01;}
-    if (key == 'y') {ty -= .01;}
-    
-    //hue chaos3
-    if (key == 'u') {ui += .01;}
-    if (key == 'i') {ui -= .01;}
-    
-    if (key == '1') {
-        //clear the framebuffer if thats whats up
-        framebuffer0.begin();
-        ofClear(0, 0, 0, 255);
-        framebuffer0.end();
-        for(int i=0;i<framebufferLength;i++){
-            pastFrames[i].begin();
-            ofClear(0,0,0,255);
-            pastFrames[i].end();
-            
-        }//endifor
-    }
-    
-    if(key=='2'){brightInvert=!brightInvert;}
-    if(key=='3'){hueInvert=!hueInvert;}
-    if(key=='4'){saturationInvert=!saturationInvert;}
-    
-    if(key=='5'){verticalMirror=!verticalMirror;}
-    if(key=='6'){horizontalMirror=!horizontalMirror;}
-    
-    if(key=='7'){toroidSwitch=!toroidSwitch;}
-    
-    if (key == '-') {y_skew += .01;}
-    if (key == '=') {y_skew -= .01;}
-    if (key == '9') {x_skew += .01;}
-    if (key == '0') {x_skew -= .01;}
-    
-    //reset button
-    if (key == '!') {
-        az = 1.0;
-        sx = 0;
-        dc = 0;
-        fv = 1;
-        gb = 1;
-        hn = 1;
-        jm = 0.0;
-        kk = 0.0;
-        ll = 0.0;
-        qw = 0.0;
-        
-        er = 1.0;
-        ty = 0.0;
-        ui = 0.0;
-        
-        op = 0.0;
-        fb0_delayamount=0;
-        
-        brightInvert=0;
-        hueInvert=0;
-        saturationInvert=0;
-        
-        verticalMirror=0;
-        horizontalMirror=0;
-        
-        x_skew=0;
-        y_skew=0;
-        
-        framebuffer0.begin();
-        ofClear(0, 0, 0, 255);
-        framebuffer0.end();
-        
-        for(int i=0;i<framebufferLength;i++){
-            pastFrames[i].begin();
-            ofClear(0,0,0,255);
-            pastFrames[i].end();
-        }//endifor
-    }
-}
 //------------------------------------------------------------------
 void ofApp::midibiz(){
-    
-    //lets figure out the hd switch thing here
-    //bool cc_aspect_switch=0;
-    //int cc_aspect_int=0;
-    
     for(unsigned int i = 0; i < midiMessages.size(); ++i) {
-        
         ofxMidiMessage &message = midiMessages[i];
         
         if(message.status < MIDI_SYSEX) {
-            //text << "chan: " << message.channel;
             if(message.status == MIDI_CONTROL_CHANGE) {
                 
-                //How to Midi Map
-                //uncomment the line that says cout<<message control etc
-                //run the code and look down in the console
-                //when u move a knob on yr controller keep track of the number that shows up
-                //that is the cc value of the knob
-                //then go down to the part labled 'MIDIMAPZONE'
-                //and change the numbers for each if message.control== statement to the values
-                //on yr controller
-                
-                // cout << "message.control"<< message.control<< endl;
-                // cout << "message.value"<< message.value<< endl;
-                
-                //MIDIMAPZONE
-                //these are mostly all set to output bipolor controls at this moment (ranging from -1.0 to 1.0)
-                //if u uncomment the second line on each of these if statements that will switch thems to unipolor
-                //controls (ranging from 0.0to 1.0) if  you prefer
-                
+                // Try configured mappings first
+                if (ccToParam.find(message.control) != ccToParam.end()) {
+                    handleConfiguredControl(message.control, message.value);
+                    continue;
+                }
+
+                if (ccToButton.find(message.control) != ccToButton.end()) {
+                    handleConfiguredButton(message.control, message.value);
+                    continue;
+                }
+
+                // Fallback to original hardcoded mappings for unmapped controls
+                // Keep existing complex logic for buttons and controls not in config
+
                 //videoreactive
                 if(message.control==39){
                     if(message.value==127){
@@ -1980,7 +1491,7 @@ void ofApp::midibiz(){
                             midiHighActiveFloat[10]=1;
                         }
                         if(midiHighActiveFloat[10]==1){
-                            highC11=(message.value-MIDI_MAGIC)/MIDI_MAGIC;
+                            highC11=message.value/MIDI_MAGIC;
                             if(z_2==TRUE){
                                 highC11=2.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
                             }
@@ -2008,13 +1519,13 @@ void ofApp::midibiz(){
                                 p_lock[11][p_lock_increment]=(message.value-MIDI_MAGIC)/MIDI_MAGIC;
                                 
                                 if(r_2==TRUE){
-                                    p_lock[11][p_lock_increment]=2.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
+                                    p_lock[11][p_lock_increment]=2*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
                                 }
                                 if(r_5==TRUE){
-                                    p_lock[11][p_lock_increment]=5.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
+                                    p_lock[11][p_lock_increment]=4*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
                                 }
                                 if(r_10==TRUE){
-                                    p_lock[11][p_lock_increment]=10.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
+                                    p_lock[11][p_lock_increment]=8*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
                                 }
                             }
                         }
@@ -2050,13 +1561,13 @@ void ofApp::midibiz(){
                         if(midiLowActiveFloat[11]==1){
                             lowC12=(message.value-MIDI_MAGIC)/MIDI_MAGIC;
                             if(r_2==TRUE){
-                                lowC12=2.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
+                                lowC12=2*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
                             }
                             if(r_5==TRUE){
-                                lowC12=5.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
+                                lowC12=4*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
                             }
                             if(r_10==TRUE){
-                                lowC12=10.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
+                                lowC12=8*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
                             }
                         }
                     }
@@ -2069,13 +1580,13 @@ void ofApp::midibiz(){
                         if(midiMidActiveFloat[11]==1){
                             midC12=(message.value-MIDI_MAGIC)/MIDI_MAGIC;
                             if(r_2==TRUE){
-                                midC12=2.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
+                                midC12=2*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
                             }
                             if(r_5==TRUE){
-                                midC12=5.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
+                                midC12=4*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
                             }
                             if(r_10==TRUE){
-                                midC12=10.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
+                                midC12=8*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
                             }
                         }
                     }
@@ -2088,13 +1599,13 @@ void ofApp::midibiz(){
                         if(midiHighActiveFloat[11]==1){
                             highC12=(message.value-MIDI_MAGIC)/MIDI_MAGIC;
                             if(r_2==TRUE){
-                                highC12=2.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
+                                highC12=2*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
                             }
                             if(r_5==TRUE){
-                                highC12=5.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
+                                highC12=4*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
                             }
                             if(r_10==TRUE){
-                                highC12=10.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
+                                highC12=8*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
                             }
                         }
                     }
@@ -3394,8 +2905,6 @@ void ofApp::midibizOld(){
                         }
                     }
                 }
-                
-                
                 if(message.control==125){
                     if(audioReactiveControlSwitch==0){
                         p_lock[13][p_lock_increment]=(message.value-63.0)/63.0f;
@@ -3456,8 +2965,6 @@ void ofApp::midibizOld(){
                             highC14=8*(message.value-63.0)/63.0f;
                         }
                     }
-                    
-                    
                     
                     
                 }

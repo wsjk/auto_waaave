@@ -1,0 +1,31 @@
+{
+  "controls": {
+    "16": {"param": "lumakey", "index": 0},
+    "17": {"param": "mix", "index": 1},
+    "18": {"param": "hue", "index": 2},
+    "19": {"param": "saturation", "index": 3},
+    "20": {"param": "brightness", "index": 4},
+    "21": {"param": "temporal", "index": 5},
+    "22": {"param": "resonance", "index": 6},
+    "23": {"param": "sharpen", "index": 7},
+    "120": {"param": "x", "index": 8},
+    "121": {"param": "y", "index": 9},
+    "122": {"param": "z", "index": 10},
+    "123": {"param": "rotate", "index": 11},
+    "124": {"param": "huexMod", "index": 12},
+    "125": {"param": "huexOff", "index": 13},
+    "126": {"param": "huexLfo", "index": 14},
+    "127": {"param": "delay", "index": 15}
+  },
+  "buttons": {
+    "58": "clearFrames",
+    "59": "resetAll",
+    "39": "videoReactive",
+    "55": "pLock",
+    "71": "wetDry",
+    "60": "brightInvert",
+    "61": "satInvert",
+    "62": "aspectRatio"
+  }
+}
+

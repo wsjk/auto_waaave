@@ -12,6 +12,7 @@
 
 #include "ofMain.h"
 #include "ofxMidi.h"
+#include "ofxJSON.h"
 //#include "ofxOMXVideoGrabber.h"
 #include "ofxProcessFFT.h"
 
@@ -39,6 +40,14 @@ public:
 	ofxMidiIn midiIn;
 	std::vector<ofxMidiMessage> midiMessages;
 	std::size_t maxMessages = 10; //< max number of messages to keep track of
+
+	// MIDI configuration
+	ofxJSON midiConfig;
+	map<int, pair<string, int>> ccToParam;
+	map<int, string> ccToButton;
+	void loadMidiConfig();
+	void handleConfiguredControl(int cc, int value);
+	void handleConfiguredButton(int cc, int value);
 
 	ofShader shader_mixer;
 	ofShader shaderSharpen;
