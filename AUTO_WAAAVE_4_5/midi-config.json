@@ -1,31 +1,30 @@
 {
-  "controls": {
-    "16": {"param": "lumakey", "index": 0},
-    "17": {"param": "mix", "index": 1},
-    "18": {"param": "hue", "index": 2},
-    "19": {"param": "saturation", "index": 3},
-    "20": {"param": "brightness", "index": 4},
-    "21": {"param": "temporal", "index": 5},
-    "22": {"param": "resonance", "index": 6},
-    "23": {"param": "sharpen", "index": 7},
-    "120": {"param": "x", "index": 8},
-    "121": {"param": "y", "index": 9},
-    "122": {"param": "z", "index": 10},
-    "123": {"param": "rotate", "index": 11},
-    "124": {"param": "huexMod", "index": 12},
-    "125": {"param": "huexOff", "index": 13},
-    "126": {"param": "huexLfo", "index": 14},
-    "127": {"param": "delay", "index": 15}
-  },
-  "buttons": {
-    "58": "clearFrames",
-    "59": "resetAll",
-    "39": "videoReactive",
-    "55": "pLock",
-    "71": "wetDry",
-    "60": "brightInvert",
-    "61": "satInvert",
-    "62": "aspectRatio"
-  }
+  "continuous": [
+    { "cc": 16,  "index": 0,  "name": "lumakey", "bipolar": false, "min": 0.0,  "max": 1.0 },
+    { "cc": 17,  "index": 1,  "name": "mix",     "bipolar": true,  "min": -1.0, "max": 1.0 },
+    { "cc": 18,  "index": 2,  "name": "hue",     "bipolar": true,  "min": -1.0, "max": 1.0 },
+    { "cc": 19,  "index": 3,  "name": "saturation", "bipolar": true, "min": -1.0, "max": 1.0 },
+    { "cc": 20,  "index": 4,  "name": "brightness", "bipolar": true, "min": -1.0, "max": 1.0 },
+    { "cc": 21,  "index": 5,  "name": "temporalMix", "bipolar": true, "min": -1.0, "max": 1.0 },
+    { "cc": 22,  "index": 6,  "name": "temporalResonance", "bipolar": false, "min": 0.0, "max": 1.0 },
+    { "cc": 23,  "index": 7,  "name": "sharpen", "bipolar": false, "min": 0.0, "max": 1.0 },
+    { "cc": 120, "index": 8,  "name": "xDisplace", "bipolar": true, "min": -1.0, "max": 1.0 },
+    { "cc": 121, "index": 9,  "name": "yDisplace", "bipolar": true, "min": -1.0, "max": 1.0 },
+    { "cc": 122, "index": 10, "name": "zDisplace", "bipolar": true, "min": -1.0, "max": 1.0 },
+    { "cc": 123, "index": 11, "name": "rotate",    "bipolar": true, "min": -1.0, "max": 1.0 },
+    { "cc": 124, "index": 12, "name": "huexMod",   "bipolar": false, "min": 0.0, "max": 1.0 },
+    { "cc": 125, "index": 13, "name": "huexOff",   "bipolar": true, "min": -1.0, "max": 1.0 },
+    { "cc": 126, "index": 14, "name": "huexLfo",   "bipolar": true, "min": -1.0, "max": 1.0 },
+    { "cc": 127, "index": 15, "name": "delay",     "bipolar": false, "min": 0.0, "max": 1.0 }
+  ],
+  "buttons": [
+    { "cc": 39, "action": "videoReactiveToggle" },
+    { "cc": 55, "action": "pLockEnable" },
+    { "cc": 58, "action": "clearFrames" },
+    { "cc": 59, "action": "resetAll" },
+    { "cc": 71, "action": "wetDryToggle" },
+    { "cc": 60, "action": "brightInvertToggle" },
+    { "cc": 61, "action": "satInvertToggle" },
+    { "cc": 62, "action": "aspectRatioToggle" }
+  ]
 }
-

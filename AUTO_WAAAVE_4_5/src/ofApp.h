@@ -15,6 +15,21 @@
 #include "ofxJSON.h"
 //#include "ofxOMXVideoGrabber.h"
 #include "ofxProcessFFT.h"
+#include <unordered_map>
+
+struct MidiContinuousMap {
+	int cc;
+	int index;
+	std::string name;
+	bool bipolar = false;
+	float minVal = 0.0f;
+	float maxVal = 1.0f;
+};
+
+struct MidiButtonMap {
+	int cc;
+	std::string action;
+};
 
 class ofApp : public ofBaseApp, public ofxMidiListener {
 	
@@ -43,11 +58,22 @@ public:
 
 	// MIDI configuration
 	ofxJSON midiConfig;
-	map<int, pair<string, int>> ccToParam;
-	map<int, string> ccToButton;
-	void loadMidiConfig();
-	void handleConfiguredControl(int cc, int value);
-	void handleConfiguredButton(int cc, int value);
+
+	// New dynamic MIDI mapping data
+	std::unordered_map<int, MidiContinuousMap> continuousMap;
+	std::unordered_map<int, MidiButtonMap> buttonMap;
+
+	// Config management
+	void loadMidiConfig();              // (re)load file
+	void rebuildMidiMaps();             // parse JSON into maps
+	void reloadMidiConfigIfChanged();   // check timestamp
+	uint64_t midiConfigTimestamp = 0;
+	uint64_t nextMidiConfigCheckMillis = 0;
+	const std::string midiConfigPath = "midi-config.json";
+
+	// Handlers
+	void applyContinuous(int cc, int value);
+	void applyButton(int cc, int value);
 
 	ofShader shader_mixer;
 	ofShader shaderSharpen;
