@@ -294,23 +294,17 @@ float d_huex_off;
 float d_huex_lfo;
 //--------------------------------------------------------------
 void ofApp::setup() {
-    //ofSetVerticalSync(true);
     ofSetFrameRate(30);
     ofBackground(0);
-    //ofToggleFullscreen();
     ofHideCursor();
-    //omx_settings();
     inputSetup();
     midiSetup();
     loadMidiConfig(); // Load MIDI configuration
     fbDeclareAndAllocate();
     shader_mixer.load("shadersES2/shader_mixer");
     shaderSharpen.load("shadersES2/shaderSharpen");
-    //fft biz
     fft.setup();
     fft.setNormalize(false);
-    //fft.setVolumeRange(1.0f);
-    
     p_lockClear();
     midiLatchClear();
 }
@@ -337,7 +331,6 @@ void ofApp::rebuildMidiMaps() {
 	continuousMap.clear();
 	buttonMap.clear();
 
-	// Preferred schema: "continuous" array
 	if(midiConfig.isMember("continuous") && midiConfig["continuous"].isArray()) {
 		for(auto &c : midiConfig["continuous"]) {
 			MidiContinuousMap m;
@@ -352,24 +345,7 @@ void ofApp::rebuildMidiMaps() {
 			}
 		}
 	}
-	// Backward compatibility with previous "controls" object
-	else if(midiConfig.isMember("controls") && midiConfig["controls"].isObject()) {
-		for(auto &member : midiConfig["controls"]) {
-			int cc = ofToInt(member.memberName());
-			const auto &obj = member;
-			MidiContinuousMap m;
-			m.cc    = cc;
-			m.index = obj.get("index",-1).asInt();
-			m.name  = obj.get("param","").asString();
-			// Infer bipolar from known param names
-			m.bipolar = (m.name != "lumakey" && m.name != "sharpen" && m.name != "delay" && m.name != "temporal" && m.name != "resonance");
-			if(m.cc >= 0 && m.index >= 0) {
-				continuousMap[m.cc] = m;
-			}
-		}
-	}
 
-	// Preferred schema: "buttons" array
 	if(midiConfig.isMember("buttons") && midiConfig["buttons"].isArray()) {
 		for(auto &b : midiConfig["buttons"]) {
 			MidiButtonMap m;
@@ -380,25 +356,13 @@ void ofApp::rebuildMidiMaps() {
 			}
 		}
 	}
-	// Backward compatibility with previous "buttons" object
-	else if(midiConfig.isMember("buttons") && midiConfig["buttons"].isObject()) {
-		for(auto &member : midiConfig["buttons"]) {
-			int cc = ofToInt(member.memberName());
-			MidiButtonMap m;
-			m.cc = cc;
-			m.action = member.asString();
-			if(m.cc >= 0) {
-				buttonMap[m.cc] = m;
-			}
-		}
-	}
 }
 
 // Throttled hot-reload
 void ofApp::reloadMidiConfigIfChanged() {
 	uint64_t now = ofGetElapsedTimeMillis();
 	if(now < nextMidiConfigCheckMillis) return;
-	nextMidiConfigCheckMillis = now + 500; // check twice per second
+	nextMidiConfigCheckMillis = now + 500;
 
 	ofFile f(midiConfigPath);
 	if(!f.exists()) return;
@@ -416,12 +380,10 @@ void ofApp::applyContinuous(int cc, int value) {
 	const MidiContinuousMap &m = it->second;
 	if(m.index < 0 || m.index >= 16) return;
 
-	// Determine raw normalized value
 	float norm = m.bipolar
-		? ( (value - MIDI_MAGIC) / MIDI_MAGIC )    // -1 .. 1
-		: ( value / 127.0f );                     // 0 .. 1
+		? ( (value - MIDI_MAGIC) / MIDI_MAGIC )
+		: ( value / 127.0f );
 
-	// Scale to min/max (supports asymmetric ranges)
 	float scaled = ofMap(norm,
 	                     m.bipolar ? -1.0f : 0.0f,
 	                     1.0f,
@@ -429,7 +391,6 @@ void ofApp::applyContinuous(int cc, int value) {
 	                     m.maxVal,
 	                     true);
 
-	// Respect existing gating logic (audio reactive & recording state)
 	if(audioReactiveControlSwitch == 0 && p_lock_0_switch == 1) {
 		if(abs(scaled - p_lock[m.index][p_lock_increment]) < CONTROL_THRESHOLD) {
 			midiActiveFloat[m.index] = true;
@@ -438,9 +399,7 @@ void ofApp::applyContinuous(int cc, int value) {
 			p_lock[m.index][p_lock_increment] = scaled;
 		}
 	}
-	// Support videoReactive alternative storage for first 12 like before
 	if(videoReactiveSwitch == 1) {
-		// Map first indices to legacy v* variables
 		switch(m.index) {
 			case 0:  vLumakeyValue = scaled; break;
 			case 1:  vMix = scaled; break;
@@ -509,1546 +468,18 @@ void ofApp::applyButton(int cc, int value) {
 	}
 }
 
-// In setup() ensure initial load runs (already calls loadMidiConfig previously)
-//--------------------------------------------------------------
-void ofApp::setup() {
-    //ofSetVerticalSync(true);
-    ofSetFrameRate(30);
-    ofBackground(0);
-    //ofToggleFullscreen();
-    ofHideCursor();
-    //omx_settings();
-    inputSetup();
-    midiSetup();
-    loadMidiConfig(); // Load MIDI configuration
-    fbDeclareAndAllocate();
-    shader_mixer.load("shadersES2/shader_mixer");
-    shaderSharpen.load("shadersES2/shaderSharpen");
-    //fft biz
-    fft.setup();
-    fft.setNormalize(false);
-    //fft.setVolumeRange(1.0f);
-
-    p_lockClear();
-    midiLatchClear();
-}
-
-//--------------------------------------------------------------
-void ofApp::loadMidiConfig() {
-	ofFile f(midiConfigPath);
-	if(!f.exists()) {
-		ofLogError("MIDI") << "Config missing: " << midiConfigPath;
-		return;
-	}
-	if(!midiConfig.open(midiConfigPath)) {
-		ofLogError("MIDI") << "Failed to parse JSON: " << midiConfigPath;
-		return;
-	}
-	midiConfigTimestamp = f.getPocoFile().getLastModified().epochMicroseconds();
-	rebuildMidiMaps();
-	ofLogNotice("MIDI") << "Loaded mappings: continuous=" << continuousMap.size()
-	                    << " buttons=" << buttonMap.size();
-}
-
-// New: rebuild maps from JSON (supports flexible schema)
-void ofApp::rebuildMidiMaps() {
-	continuousMap.clear();
-	buttonMap.clear();
-
-	// Preferred schema: "continuous" array
-	if(midiConfig.isMember("continuous") && midiConfig["continuous"].isArray()) {
-		for(auto &c : midiConfig["continuous"]) {
-			MidiContinuousMap m;
-			m.cc      = c.get("cc",-1).asInt();
-			m.index   = c.get("index",-1).asInt();
-			m.name    = c.get("name","").asString();
-			m.bipolar = c.get("bipolar", false).asBool();
-			m.minVal  = c.get("min", 0.0).asFloat();
-			m.maxVal  = c.get("max", 1.0).asFloat();
-			if(m.cc >= 0 && m.index >= 0) {
-				continuousMap[m.cc] = m;
-			}
-		}
-	}
-	// Backward compatibility with previous "controls" object
-	else if(midiConfig.isMember("controls") && midiConfig["controls"].isObject()) {
-		for(auto &member : midiConfig["controls"]) {
-			int cc = ofToInt(member.memberName());
-			const auto &obj = member;
-			MidiContinuousMap m;
-			m.cc    = cc;
-			m.index = obj.get("index",-1).asInt();
-			m.name  = obj.get("param","").asString();
-			// Infer bipolar from known param names
-			m.bipolar = (m.name != "lumakey" && m.name != "sharpen" && m.name != "delay" && m.name != "temporal" && m.name != "resonance");
-			if(m.cc >= 0 && m.index >= 0) {
-				continuousMap[m.cc] = m;
-			}
-		}
-	}
-
-	// Preferred schema: "buttons" array
-	if(midiConfig.isMember("buttons") && midiConfig["buttons"].isArray()) {
-		for(auto &b : midiConfig["buttons"]) {
-			MidiButtonMap m;
-			m.cc     = b.get("cc",-1).asInt();
-			m.action = b.get("action","").asString();
-			if(m.cc >= 0 && !m.action.empty()) {
-				buttonMap[m.cc] = m;
-			}
-		}
-	}
-	// Backward compatibility with previous "buttons" object
-	else if(midiConfig.isMember("buttons") && midiConfig["buttons"].isObject()) {
-		for(auto &member : midiConfig["buttons"]) {
-			int cc = ofToInt(member.memberName());
-			MidiButtonMap m;
-			m.cc = cc;
-			m.action = member.asString();
-			if(m.cc >= 0) {
-				buttonMap[m.cc] = m;
-			}
-		}
-	}
-}
-
-// Throttled hot-reload
-void ofApp::reloadMidiConfigIfChanged() {
-	uint64_t now = ofGetElapsedTimeMillis();
-	if(now < nextMidiConfigCheckMillis) return;
-	nextMidiConfigCheckMillis = now + 500; // check twice per second
-
-	ofFile f(midiConfigPath);
-	if(!f.exists()) return;
-	uint64_t ts = f.getPocoFile().getLastModified().epochMicroseconds();
-	if(ts != midiConfigTimestamp) {
-		ofLogNotice("MIDI") << "Config changed on disk, reloading";
-		loadMidiConfig();
-	}
-}
-
-// Apply continuous mapping generically
-void ofApp::applyContinuous(int cc, int value) {
-	auto it = continuousMap.find(cc);
-	if(it == continuousMap.end()) return;
-	const MidiContinuousMap &m = it->second;
-	if(m.index < 0 || m.index >= 16) return;
-
-	// Determine raw normalized value
-	float norm = m.bipolar
-		? ( (value - MIDI_MAGIC) / MIDI_MAGIC )    // -1 .. 1
-		: ( value / 127.0f );                     // 0 .. 1
-
-	// Scale to min/max (supports asymmetric ranges)
-	float scaled = ofMap(norm,
-	                     m.bipolar ? -1.0f : 0.0f,
-	                     1.0f,
-	                     m.minVal,
-	                     m.maxVal,
-	                     true);
-
-	// Respect existing gating logic (audio reactive & recording state)
-	if(audioReactiveControlSwitch == 0 && p_lock_0_switch == 1) {
-		if(abs(scaled - p_lock[m.index][p_lock_increment]) < CONTROL_THRESHOLD) {
-			midiActiveFloat[m.index] = true;
-		}
-		if(midiActiveFloat[m.index]) {
-			p_lock[m.index][p_lock_increment] = scaled;
-		}
-	}
-	// Support videoReactive alternative storage for first 12 like before
-	if(videoReactiveSwitch == 1) {
-		// Map first indices to legacy v* variables
-		switch(m.index) {
-			case 0:  vLumakeyValue = scaled; break;
-			case 1:  vMix = scaled; break;
-			case 2:  vHue = scaled; break;
-			case 3:  vSaturation = scaled; break;
-			case 4:  vBright = scaled; break;
-			case 5:  vTemporalFilterMix = scaled; break;
-			case 6:  vTemporalFilterResonance = scaled; break;
-			case 7:  vSharpenAmount = scaled; break;
-			case 8:  vX = scaled; break;
-			case 9:  vY = scaled; break;
-			case 10: vZ = scaled; break;
-			case 11: vRotate = scaled; break;
-			case 12: vHuexMod = scaled; break;
-			case 13: vHuexOff = scaled; break;
-			case 14: vHuexLfo = scaled; break;
-			default: break;
-		}
-	}
-}
-
-// Apply button/action mapping
-void ofApp::applyButton(int cc, int value) {
-	auto it = buttonMap.find(cc);
-	if(it == buttonMap.end()) return;
-	const std::string &action = it->second.action;
-
-	bool pressed = (value > 0);
-	if(action == "videoReactiveToggle") {
-		if(pressed) { videoReactiveSwitch = !videoReactiveSwitch; p_lock_0_switch = videoReactiveSwitch ? 0 : 1; }
-	}
-	else if(action == "pLockEnable") {
-		p_lock_switch = pressed;
-		if(pressed) {
-			for(int i=0;i<p_lock_number;i++){
-				p_lock_smoothed[i]=0;
-				for(int j=0;j<p_lock_size;j++){
-					p_lock[i][j]=p_lock[i][p_lock_increment];
-				}
-			}
-		}
-	}
-	else if(action == "clearFrames" && pressed) {
-		framebuffer0.begin(); ofClear(0,0,0,255); framebuffer0.end();
-		for(int i=0;i<framebufferLength;i++){ pastFrames[i].begin(); ofClear(0,0,0,255); pastFrames[i].end(); }
-	}
-	else if(action == "resetAll" && pressed) {
-		vLumakeyValue=vMix=vHue=vSaturation=vBright=vTemporalFilterMix=vTemporalFilterResonance=vSharpenAmount=
-		vX=vY=vZ=vRotate=vHuexMod=vHuexOff=vHuexLfo=0.0f;
-		for(int i=0;i<p_lock_number;i++){
-			for(int j=0;j<p_lock_size;j++){ p_lock[i][j]=0.0f; }
-			midiActiveFloat[i]=vmidiActiveFloat[i]=midiLowActiveFloat[i]=midiMidActiveFloat[i]=midiHighActiveFloat[i]=0;
-		}
-	}
-	else if(action == "wetDryToggle" && pressed) {
-		wet_dry_switch = !wet_dry_switch;
-	}
-	else if(action == "brightInvertToggle") {
-		brightInvert = pressed;
-	}
-	else if(action == "satInvertToggle") {
-		saturationInvert = pressed;
-	}
-	else if(action == "aspectRatioToggle" && pressed) {
-		hdmi_aspect_ratio_switch = !hdmi_aspect_ratio_switch;
-	}
-}
-
-// In setup() ensure initial load runs (already calls loadMidiConfig previously)
-//--------------------------------------------------------------
-void ofApp::setup() {
-    //ofSetVerticalSync(true);
-    ofSetFrameRate(30);
-    ofBackground(0);
-    //ofToggleFullscreen();
-    ofHideCursor();
-    //omx_settings();
-    inputSetup();
-    midiSetup();
-    loadMidiConfig(); // Load MIDI configuration
-    fbDeclareAndAllocate();
-    shader_mixer.load("shadersES2/shader_mixer");
-    shaderSharpen.load("shadersES2/shaderSharpen");
-    //fft biz
-    fft.setup();
-    fft.setNormalize(false);
-    //fft.setVolumeRange(1.0f);
-
-    p_lockClear();
-    midiLatchClear();
-}
-
-//--------------------------------------------------------------
-void ofApp::loadMidiConfig() {
-	ofFile f(midiConfigPath);
-	if(!f.exists()) {
-		ofLogError("MIDI") << "Config missing: " << midiConfigPath;
-		return;
-	}
-	if(!midiConfig.open(midiConfigPath)) {
-		ofLogError("MIDI") << "Failed to parse JSON: " << midiConfigPath;
-		return;
-	}
-	midiConfigTimestamp = f.getPocoFile().getLastModified().epochMicroseconds();
-	rebuildMidiMaps();
-	ofLogNotice("MIDI") << "Loaded mappings: continuous=" << continuousMap.size()
-	                    << " buttons=" << buttonMap.size();
-}
-
-// New: rebuild maps from JSON (supports flexible schema)
-void ofApp::rebuildMidiMaps() {
-	continuousMap.clear();
-	buttonMap.clear();
-
-	// Preferred schema: "continuous" array
-	if(midiConfig.isMember("continuous") && midiConfig["continuous"].isArray()) {
-		for(auto &c : midiConfig["continuous"]) {
-			MidiContinuousMap m;
-			m.cc      = c.get("cc",-1).asInt();
-			m.index   = c.get("index",-1).asInt();
-			m.name    = c.get("name","").asString();
-			m.bipolar = c.get("bipolar", false).asBool();
-			m.minVal  = c.get("min", 0.0).asFloat();
-			m.maxVal  = c.get("max", 1.0).asFloat();
-			if(m.cc >= 0 && m.index >= 0) {
-				continuousMap[m.cc] = m;
-			}
-		}
-	}
-	// Backward compatibility with previous "controls" object
-	else if(midiConfig.isMember("controls") && midiConfig["controls"].isObject()) {
-		for(auto &member : midiConfig["controls"]) {
-			int cc = ofToInt(member.memberName());
-			const auto &obj = member;
-			MidiContinuousMap m;
-			m.cc    = cc;
-			m.index = obj.get("index",-1).asInt();
-			m.name  = obj.get("param","").asString();
-			// Infer bipolar from known param names
-			m.bipolar = (m.name != "lumakey" && m.name != "sharpen" && m.name != "delay" && m.name != "temporal" && m.name != "resonance");
-			if(m.cc >= 0 && m.index >= 0) {
-				continuousMap[m.cc] = m;
-			}
-		}
-	}
-
-	// Preferred schema: "buttons" array
-	if(midiConfig.isMember("buttons") && midiConfig["buttons"].isArray()) {
-		for(auto &b : midiConfig["buttons"]) {
-			MidiButtonMap m;
-			m.cc     = b.get("cc",-1).asInt();
-			m.action = b.get("action","").asString();
-			if(m.cc >= 0 && !m.action.empty()) {
-				buttonMap[m.cc] = m;
-			}
-		}
-	}
-	// Backward compatibility with previous "buttons" object
-	else if(midiConfig.isMember("buttons") && midiConfig["buttons"].isObject()) {
-		for(auto &member : midiConfig["buttons"]) {
-			int cc = ofToInt(member.memberName());
-			MidiButtonMap m;
-			m.cc = cc;
-			m.action = member.asString();
-			if(m.cc >= 0) {
-				buttonMap[m.cc] = m;
-			}
-		}
-	}
-}
-
-// Throttled hot-reload
-void ofApp::reloadMidiConfigIfChanged() {
-	uint64_t now = ofGetElapsedTimeMillis();
-	if(now < nextMidiConfigCheckMillis) return;
-	nextMidiConfigCheckMillis = now + 500; // check twice per second
-
-	ofFile f(midiConfigPath);
-	if(!f.exists()) return;
-	uint64_t ts = f.getPocoFile().getLastModified().epochMicroseconds();
-	if(ts != midiConfigTimestamp) {
-		ofLogNotice("MIDI") << "Config changed on disk, reloading";
-		loadMidiConfig();
-	}
-}
-
-// Apply continuous mapping generically
-void ofApp::applyContinuous(int cc, int value) {
-	auto it = continuousMap.find(cc);
-	if(it == continuousMap.end()) return;
-	const MidiContinuousMap &m = it->second;
-	if(m.index < 0 || m.index >= 16) return;
-
-	// Determine raw normalized value
-	float norm = m.bipolar
-		? ( (value - MIDI_MAGIC) / MIDI_MAGIC )    // -1 .. 1
-		: ( value / 127.0f );                     // 0 .. 1
-
-	// Scale to min/max (supports asymmetric ranges)
-	float scaled = ofMap(norm,
-	                     m.bipolar ? -1.0f : 0.0f,
-	                     1.0f,
-	                     m.minVal,
-	                     m.maxVal,
-	                     true);
-
-	// Respect existing gating logic (audio reactive & recording state)
-	if(audioReactiveControlSwitch == 0 && p_lock_0_switch == 1) {
-		if(abs(scaled - p_lock[m.index][p_lock_increment]) < CONTROL_THRESHOLD) {
-			midiActiveFloat[m.index] = true;
-		}
-		if(midiActiveFloat[m.index]) {
-			p_lock[m.index][p_lock_increment] = scaled;
-		}
-	}
-	// Support videoReactive alternative storage for first 12 like before
-	if(videoReactiveSwitch == 1) {
-		// Map first indices to legacy v* variables
-		switch(m.index) {
-			case 0:  vLumakeyValue = scaled; break;
-			case 1:  vMix = scaled; break;
-			case 2:  vHue = scaled; break;
-			case 3:  vSaturation = scaled; break;
-			case 4:  vBright = scaled; break;
-			case 5:  vTemporalFilterMix = scaled; break;
-			case 6:  vTemporalFilterResonance = scaled; break;
-			case 7:  vSharpenAmount = scaled; break;
-			case 8:  vX = scaled; break;
-			case 9:  vY = scaled; break;
-			case 10: vZ = scaled; break;
-			case 11: vRotate = scaled; break;
-			case 12: vHuexMod = scaled; break;
-			case 13: vHuexOff = scaled; break;
-			case 14: vHuexLfo = scaled; break;
-			default: break;
-		}
-	}
-}
-
-// Apply button/action mapping
-void ofApp::applyButton(int cc, int value) {
-	auto it = buttonMap.find(cc);
-	if(it == buttonMap.end()) return;
-	const std::string &action = it->second.action;
-
-	bool pressed = (value > 0);
-	if(action == "videoReactiveToggle") {
-		if(pressed) { videoReactiveSwitch = !videoReactiveSwitch; p_lock_0_switch = videoReactiveSwitch ? 0 : 1; }
-	}
-	else if(action == "pLockEnable") {
-		p_lock_switch = pressed;
-		if(pressed) {
-			for(int i=0;i<p_lock_number;i++){
-				p_lock_smoothed[i]=0;
-				for(int j=0;j<p_lock_size;j++){
-					p_lock[i][j]=p_lock[i][p_lock_increment];
-				}
-			}
-		}
-	}
-	else if(action == "clearFrames" && pressed) {
-		framebuffer0.begin(); ofClear(0,0,0,255); framebuffer0.end();
-		for(int i=0;i<framebufferLength;i++){ pastFrames[i].begin(); ofClear(0,0,0,255); pastFrames[i].end(); }
-	}
-	else if(action == "resetAll" && pressed) {
-		vLumakeyValue=vMix=vHue=vSaturation=vBright=vTemporalFilterMix=vTemporalFilterResonance=vSharpenAmount=
-		vX=vY=vZ=vRotate=vHuexMod=vHuexOff=vHuexLfo=0.0f;
-		for(int i=0;i<p_lock_number;i++){
-			for(int j=0;j<p_lock_size;j++){ p_lock[i][j]=0.0f; }
-			midiActiveFloat[i]=vmidiActiveFloat[i]=midiLowActiveFloat[i]=midiMidActiveFloat[i]=midiHighActiveFloat[i]=0;
-		}
-	}
-	else if(action == "wetDryToggle" && pressed) {
-		wet_dry_switch = !wet_dry_switch;
-	}
-	else if(action == "brightInvertToggle") {
-		brightInvert = pressed;
-	}
-	else if(action == "satInvertToggle") {
-		saturationInvert = pressed;
-	}
-	else if(action == "aspectRatioToggle" && pressed) {
-		hdmi_aspect_ratio_switch = !hdmi_aspect_ratio_switch;
-	}
-}
-
-// In setup() ensure initial load runs (already calls loadMidiConfig previously)
-//--------------------------------------------------------------
-void ofApp::setup() {
-    //ofSetVerticalSync(true);
-    ofSetFrameRate(30);
-    ofBackground(0);
-    //ofToggleFullscreen();
-    ofHideCursor();
-    //omx_settings();
-    inputSetup();
-    midiSetup();
-    loadMidiConfig(); // Load MIDI configuration
-    fbDeclareAndAllocate();
-    shader_mixer.load("shadersES2/shader_mixer");
-    shaderSharpen.load("shadersES2/shaderSharpen");
-    //fft biz
-    fft.setup();
-    fft.setNormalize(false);
-    //fft.setVolumeRange(1.0f);
-
-    p_lockClear();
-    midiLatchClear();
-}
-
-//--------------------------------------------------------------
-void ofApp::loadMidiConfig() {
-	ofFile f(midiConfigPath);
-	if(!f.exists()) {
-		ofLogError("MIDI") << "Config missing: " << midiConfigPath;
-		return;
-	}
-	if(!midiConfig.open(midiConfigPath)) {
-		ofLogError("MIDI") << "Failed to parse JSON: " << midiConfigPath;
-		return;
-	}
-	midiConfigTimestamp = f.getPocoFile().getLastModified().epochMicroseconds();
-	rebuildMidiMaps();
-	ofLogNotice("MIDI") << "Loaded mappings: continuous=" << continuousMap.size()
-	                    << " buttons=" << buttonMap.size();
-}
-
-// New: rebuild maps from JSON (supports flexible schema)
-void ofApp::rebuildMidiMaps() {
-	continuousMap.clear();
-	buttonMap.clear();
-
-	// Preferred schema: "continuous" array
-	if(midiConfig.isMember("continuous") && midiConfig["continuous"].isArray()) {
-		for(auto &c : midiConfig["continuous"]) {
-			MidiContinuousMap m;
-			m.cc      = c.get("cc",-1).asInt();
-			m.index   = c.get("index",-1).asInt();
-			m.name    = c.get("name","").asString();
-			m.bipolar = c.get("bipolar", false).asBool();
-			m.minVal  = c.get("min", 0.0).asFloat();
-			m.maxVal  = c.get("max", 1.0).asFloat();
-			if(m.cc >= 0 && m.index >= 0) {
-				continuousMap[m.cc] = m;
-			}
-		}
-	}
-	// Backward compatibility with previous "controls" object
-	else if(midiConfig.isMember("controls") && midiConfig["controls"].isObject()) {
-		for(auto &member : midiConfig["controls"]) {
-			int cc = ofToInt(member.memberName());
-			const auto &obj = member;
-			MidiContinuousMap m;
-			m.cc    = cc;
-			m.index = obj.get("index",-1).asInt();
-			m.name  = obj.get("param","").asString();
-			// Infer bipolar from known param names
-			m.bipolar = (m.name != "lumakey" && m.name != "sharpen" && m.name != "delay" && m.name != "temporal" && m.name != "resonance");
-			if(m.cc >= 0 && m.index >= 0) {
-				continuousMap[m.cc] = m;
-			}
-		}
-	}
-
-	// Preferred schema: "buttons" array
-	if(midiConfig.isMember("buttons") && midiConfig["buttons"].isArray()) {
-		for(auto &b : midiConfig["buttons"]) {
-			MidiButtonMap m;
-			m.cc     = b.get("cc",-1).asInt();
-			m.action = b.get("action","").asString();
-			if(m.cc >= 0 && !m.action.empty()) {
-				buttonMap[m.cc] = m;
-			}
-		}
-	}
-	// Backward compatibility with previous "buttons" object
-	else if(midiConfig.isMember("buttons") && midiConfig["buttons"].isObject()) {
-		for(auto &member : midiConfig["buttons"]) {
-			int cc = ofToInt(member.memberName());
-			MidiButtonMap m;
-			m.cc = cc;
-			m.action = member.asString();
-			if(m.cc >= 0) {
-				buttonMap[m.cc] = m;
-			}
-		}
-	}
-}
-
-// Throttled hot-reload
-void ofApp::reloadMidiConfigIfChanged() {
-	uint64_t now = ofGetElapsedTimeMillis();
-	if(now < nextMidiConfigCheckMillis) return;
-	nextMidiConfigCheckMillis = now + 500; // check twice per second
-
-	ofFile f(midiConfigPath);
-	if(!f.exists()) return;
-	uint64_t ts = f.getPocoFile().getLastModified().epochMicroseconds();
-	if(ts != midiConfigTimestamp) {
-		ofLogNotice("MIDI") << "Config changed on disk, reloading";
-		loadMidiConfig();
-	}
-}
-
-// Apply continuous mapping generically
-void ofApp::applyContinuous(int cc, int value) {
-	auto it = continuousMap.find(cc);
-	if(it == continuousMap.end()) return;
-	const MidiContinuousMap &m = it->second;
-	if(m.index < 0 || m.index >= 16) return;
-
-	// Determine raw normalized value
-	float norm = m.bipolar
-		? ( (value - MIDI_MAGIC) / MIDI_MAGIC )    // -1 .. 1
-		: ( value / 127.0f );                     // 0 .. 1
-
-	// Scale to min/max (supports asymmetric ranges)
-	float scaled = ofMap(norm,
-	                     m.bipolar ? -1.0f : 0.0f,
-	                     1.0f,
-	                     m.minVal,
-	                     m.maxVal,
-	                     true);
-
-	// Respect existing gating logic (audio reactive & recording state)
-	if(audioReactiveControlSwitch == 0 && p_lock_0_switch == 1) {
-		if(abs(scaled - p_lock[m.index][p_lock_increment]) < CONTROL_THRESHOLD) {
-			midiActiveFloat[m.index] = true;
-		}
-		if(midiActiveFloat[m.index]) {
-			p_lock[m.index][p_lock_increment] = scaled;
-		}
-	}
-	// Support videoReactive alternative storage for first 12 like before
-	if(videoReactiveSwitch == 1) {
-		// Map first indices to legacy v* variables
-		switch(m.index) {
-			case 0:  vLumakeyValue = scaled; break;
-			case 1:  vMix = scaled; break;
-			case 2:  vHue = scaled; break;
-			case 3:  vSaturation = scaled; break;
-			case 4:  vBright = scaled; break;
-			case 5:  vTemporalFilterMix = scaled; break;
-			case 6:  vTemporalFilterResonance = scaled; break;
-			case 7:  vSharpenAmount = scaled; break;
-			case 8:  vX = scaled; break;
-			case 9:  vY = scaled; break;
-			case 10: vZ = scaled; break;
-			case 11: vRotate = scaled; break;
-			case 12: vHuexMod = scaled; break;
-			case 13: vHuexOff = scaled; break;
-			case 14: vHuexLfo = scaled; break;
-			default: break;
-		}
-	}
-}
-
-// Apply button/action mapping
-void ofApp::applyButton(int cc, int value) {
-	auto it = buttonMap.find(cc);
-	if(it == buttonMap.end()) return;
-	const std::string &action = it->second.action;
-
-	bool pressed = (value > 0);
-	if(action == "videoReactiveToggle") {
-		if(pressed) { videoReactiveSwitch = !videoReactiveSwitch; p_lock_0_switch = videoReactiveSwitch ? 0 : 1; }
-	}
-	else if(action == "pLockEnable") {
-		p_lock_switch = pressed;
-		if(pressed) {
-			for(int i=0;i<p_lock_number;i++){
-				p_lock_smoothed[i]=0;
-				for(int j=0;j<p_lock_size;j++){
-					p_lock[i][j]=p_lock[i][p_lock_increment];
-				}
-			}
-		}
-	}
-	else if(action == "clearFrames" && pressed) {
-		framebuffer0.begin(); ofClear(0,0,0,255); framebuffer0.end();
-		for(int i=0;i<framebufferLength;i++){ pastFrames[i].begin(); ofClear(0,0,0,255); pastFrames[i].end(); }
-	}
-	else if(action == "resetAll" && pressed) {
-		vLumakeyValue=vMix=vHue=vSaturation=vBright=vTemporalFilterMix=vTemporalFilterResonance=vSharpenAmount=
-		vX=vY=vZ=vRotate=vHuexMod=vHuexOff=vHuexLfo=0.0f;
-		for(int i=0;i<p_lock_number;i++){
-			for(int j=0;j<p_lock_size;j++){ p_lock[i][j]=0.0f; }
-			midiActiveFloat[i]=vmidiActiveFloat[i]=midiLowActiveFloat[i]=midiMidActiveFloat[i]=midiHighActiveFloat[i]=0;
-		}
-	}
-	else if(action == "wetDryToggle" && pressed) {
-		wet_dry_switch = !wet_dry_switch;
-	}
-	else if(action == "brightInvertToggle") {
-		brightInvert = pressed;
-	}
-	else if(action == "satInvertToggle") {
-		saturationInvert = pressed;
-	}
-	else if(action == "aspectRatioToggle" && pressed) {
-		hdmi_aspect_ratio_switch = !hdmi_aspect_ratio_switch;
-	}
-}
-
-// In setup() ensure initial load runs (already calls loadMidiConfig previously)
-//--------------------------------------------------------------
-void ofApp::setup() {
-    //ofSetVerticalSync(true);
-    ofSetFrameRate(30);
-    ofBackground(0);
-    //ofToggleFullscreen();
-    ofHideCursor();
-    //omx_settings();
-    inputSetup();
-    midiSetup();
-    loadMidiConfig(); // Load MIDI configuration
-    fbDeclareAndAllocate();
-    shader_mixer.load("shadersES2/shader_mixer");
-    shaderSharpen.load("shadersES2/shaderSharpen");
-    //fft biz
-    fft.setup();
-    fft.setNormalize(false);
-    //fft.setVolumeRange(1.0f);
-
-    p_lockClear();
-    midiLatchClear();
-}
-
-//--------------------------------------------------------------
-void ofApp::loadMidiConfig() {
-	ofFile f(midiConfigPath);
-	if(!f.exists()) {
-		ofLogError("MIDI") << "Config missing: " << midiConfigPath;
-		return;
-	}
-	if(!midiConfig.open(midiConfigPath)) {
-		ofLogError("MIDI") << "Failed to parse JSON: " << midiConfigPath;
-		return;
-	}
-	midiConfigTimestamp = f.getPocoFile().getLastModified().epochMicroseconds();
-	rebuildMidiMaps();
-	ofLogNotice("MIDI") << "Loaded mappings: continuous=" << continuousMap.size()
-	                    << " buttons=" << buttonMap.size();
-}
-
-// New: rebuild maps from JSON (supports flexible schema)
-void ofApp::rebuildMidiMaps() {
-	continuousMap.clear();
-	buttonMap.clear();
-
-	// Preferred schema: "continuous" array
-	if(midiConfig.isMember("continuous") && midiConfig["continuous"].isArray()) {
-		for(auto &c : midiConfig["continuous"]) {
-			MidiContinuousMap m;
-			m.cc      = c.get("cc",-1).asInt();
-			m.index   = c.get("index",-1).asInt();
-			m.name    = c.get("name","").asString();
-			m.bipolar = c.get("bipolar", false).asBool();
-			m.minVal  = c.get("min", 0.0).asFloat();
-			m.maxVal  = c.get("max", 1.0).asFloat();
-			if(m.cc >= 0 && m.index >= 0) {
-				continuousMap[m.cc] = m;
-			}
-		}
-	}
-	// Backward compatibility with previous "controls" object
-	else if(midiConfig.isMember("controls") && midiConfig["controls"].isObject()) {
-		for(auto &member : midiConfig["controls"]) {
-			int cc = ofToInt(member.memberName());
-			const auto &obj = member;
-			MidiContinuousMap m;
-			m.cc    = cc;
-			m.index = obj.get("index",-1).asInt();
-			m.name  = obj.get("param","").asString();
-			// Infer bipolar from known param names
-			m.bipolar = (m.name != "lumakey" && m.name != "sharpen" && m.name != "delay" && m.name != "temporal" && m.name != "resonance");
-			if(m.cc >= 0 && m.index >= 0) {
-				continuousMap[m.cc] = m;
-			}
-		}
-	}
-
-	// Preferred schema: "buttons" array
-	if(midiConfig.isMember("buttons") && midiConfig["buttons"].isArray()) {
-		for(auto &b : midiConfig["buttons"]) {
-			MidiButtonMap m;
-			m.cc     = b.get("cc",-1).asInt();
-			m.action = b.get("action","").asString();
-			if(m.cc >= 0 && !m.action.empty()) {
-				buttonMap[m.cc] = m;
-			}
-		}
-	}
-	// Backward compatibility with previous "buttons" object
-	else if(midiConfig.isMember("buttons") && midiConfig["buttons"].isObject()) {
-		for(auto &member : midiConfig["buttons"]) {
-			int cc = ofToInt(member.memberName());
-			MidiButtonMap m;
-			m.cc = cc;
-			m.action = member.asString();
-			if(m.cc >= 0) {
-				buttonMap[m.cc] = m;
-			}
-		}
-	}
-}
-
-// Throttled hot-reload
-void ofApp::reloadMidiConfigIfChanged() {
-	uint64_t now = ofGetElapsedTimeMillis();
-	if(now < nextMidiConfigCheckMillis) return;
-	nextMidiConfigCheckMillis = now + 500; // check twice per second
-
-	ofFile f(midiConfigPath);
-	if(!f.exists()) return;
-	uint64_t ts = f.getPocoFile().getLastModified().epochMicroseconds();
-	if(ts != midiConfigTimestamp) {
-		ofLogNotice("MIDI") << "Config changed on disk, reloading";
-		loadMidiConfig();
-	}
-}
-
-// Apply continuous mapping generically
-void ofApp::applyContinuous(int cc, int value) {
-	auto it = continuousMap.find(cc);
-	if(it == continuousMap.end()) return;
-	const MidiContinuousMap &m = it->second;
-	if(m.index < 0 || m.index >= 16) return;
-
-	// Determine raw normalized value
-	float norm = m.bipolar
-		? ( (value - MIDI_MAGIC) / MIDI_MAGIC )    // -1 .. 1
-		: ( value / 127.0f );                     // 0 .. 1
-
-	// Scale to min/max (supports asymmetric ranges)
-	float scaled = ofMap(norm,
-	                     m.bipolar ? -1.0f : 0.0f,
-	                     1.0f,
-	                     m.minVal,
-	                     m.maxVal,
-	                     true);
-
-	// Respect existing gating logic (audio reactive & recording state)
-	if(audioReactiveControlSwitch == 0 && p_lock_0_switch == 1) {
-		if(abs(scaled - p_lock[m.index][p_lock_increment]) < CONTROL_THRESHOLD) {
-			midiActiveFloat[m.index] = true;
-		}
-		if(midiActiveFloat[m.index]) {
-			p_lock[m.index][p_lock_increment] = scaled;
-		}
-	}
-	// Support videoReactive alternative storage for first 12 like before
-	if(videoReactiveSwitch == 1) {
-		// Map first indices to legacy v* variables
-		switch(m.index) {
-			case 0:  vLumakeyValue = scaled; break;
-			case 1:  vMix = scaled; break;
-			case 2:  vHue = scaled; break;
-			case 3:  vSaturation = scaled; break;
-			case 4:  vBright = scaled; break;
-			case 5:  vTemporalFilterMix = scaled; break;
-			case 6:  vTemporalFilterResonance = scaled; break;
-			case 7:  vSharpenAmount = scaled; break;
-			case 8:  vX = scaled; break;
-			case 9:  vY = scaled; break;
-			case 10: vZ = scaled; break;
-			case 11: vRotate = scaled; break;
-			case 12: vHuexMod = scaled; break;
-			case 13: vHuexOff = scaled; break;
-			case 14: vHuexLfo = scaled; break;
-			default: break;
-		}
-	}
-}
-
-// Apply button/action mapping
-void ofApp::applyButton(int cc, int value) {
-	auto it = buttonMap.find(cc);
-	if(it == buttonMap.end()) return;
-	const std::string &action = it->second.action;
-
-	bool pressed = (value > 0);
-	if(action == "videoReactiveToggle") {
-		if(pressed) { videoReactiveSwitch = !videoReactiveSwitch; p_lock_0_switch = videoReactiveSwitch ? 0 : 1; }
-	}
-	else if(action == "pLockEnable") {
-		p_lock_switch = pressed;
-		if(pressed) {
-			for(int i=0;i<p_lock_number;i++){
-				p_lock_smoothed[i]=0;
-				for(int j=0;j<p_lock_size;j++){
-					p_lock[i][j]=p_lock[i][p_lock_increment];
-				}
-			}
-		}
-	}
-	else if(action == "clearFrames" && pressed) {
-		framebuffer0.begin(); ofClear(0,0,0,255); framebuffer0.end();
-		for(int i=0;i<framebufferLength;i++){ pastFrames[i].begin(); ofClear(0,0,0,255); pastFrames[i].end(); }
-	}
-	else if(action == "resetAll" && pressed) {
-		vLumakeyValue=vMix=vHue=vSaturation=vBright=vTemporalFilterMix=vTemporalFilterResonance=vSharpenAmount=
-		vX=vY=vZ=vRotate=vHuexMod=vHuexOff=vHuexLfo=0.0f;
-		for(int i=0;i<p_lock_number;i++){
-			for(int j=0;j<p_lock_size;j++){ p_lock[i][j]=0.0f; }
-			midiActiveFloat[i]=vmidiActiveFloat[i]=midiLowActiveFloat[i]=midiMidActiveFloat[i]=midiHighActiveFloat[i]=0;
-		}
-	}
-	else if(action == "wetDryToggle" && pressed) {
-		wet_dry_switch = !wet_dry_switch;
-	}
-	else if(action == "brightInvertToggle") {
-		brightInvert = pressed;
-	}
-	else if(action == "satInvertToggle") {
-		saturationInvert = pressed;
-	}
-	else if(action == "aspectRatioToggle" && pressed) {
-		hdmi_aspect_ratio_switch = !hdmi_aspect_ratio_switch;
-	}
-}
-
-// In setup() ensure initial load runs (already calls loadMidiConfig previously)
-//--------------------------------------------------------------
-void ofApp::setup() {
-    //ofSetVerticalSync(true);
-    ofSetFrameRate(30);
-    ofBackground(0);
-    //ofToggleFullscreen();
-    ofHideCursor();
-    //omx_settings();
-    inputSetup();
-    midiSetup();
-    loadMidiConfig(); // Load MIDI configuration
-    fbDeclareAndAllocate();
-    shader_mixer.load("shadersES2/shader_mixer");
-    shaderSharpen.load("shadersES2/shaderSharpen");
-    //fft biz
-    fft.setup();
-    fft.setNormalize(false);
-    //fft.setVolumeRange(1.0f);
-
-    p_lockClear();
-    midiLatchClear();
-}
-
-//--------------------------------------------------------------
-void ofApp::loadMidiConfig() {
-	ofFile f(midiConfigPath);
-	if(!f.exists()) {
-		ofLogError("MIDI") << "Config missing: " << midiConfigPath;
-		return;
-	}
-	if(!midiConfig.open(midiConfigPath)) {
-		ofLogError("MIDI") << "Failed to parse JSON: " << midiConfigPath;
-		return;
-	}
-	midiConfigTimestamp = f.getPocoFile().getLastModified().epochMicroseconds();
-	rebuildMidiMaps();
-	ofLogNotice("MIDI") << "Loaded mappings: continuous=" << continuousMap.size()
-	                    << " buttons=" << buttonMap.size();
-}
-
-// New: rebuild maps from JSON (supports flexible schema)
-void ofApp::rebuildMidiMaps() {
-	continuousMap.clear();
-	buttonMap.clear();
-
-	// Preferred schema: "continuous" array
-	if(midiConfig.isMember("continuous") && midiConfig["continuous"].isArray()) {
-		for(auto &c : midiConfig["continuous"]) {
-			MidiContinuousMap m;
-			m.cc      = c.get("cc",-1).asInt();
-			m.index   = c.get("index",-1).asInt();
-			m.name    = c.get("name","").asString();
-			m.bipolar = c.get("bipolar", false).asBool();
-			m.minVal  = c.get("min", 0.0).asFloat();
-			m.maxVal  = c.get("max", 1.0).asFloat();
-			if(m.cc >= 0 && m.index >= 0) {
-				continuousMap[m.cc] = m;
-			}
-		}
-	}
-	// Backward compatibility with previous "controls" object
-	else if(midiConfig.isMember("controls") && midiConfig["controls"].isObject()) {
-		for(auto &member : midiConfig["controls"]) {
-			int cc = ofToInt(member.memberName());
-			const auto &obj = member;
-			MidiContinuousMap m;
-			m.cc    = cc;
-			m.index = obj.get("index",-1).asInt();
-			m.name  = obj.get("param","").asString();
-			// Infer bipolar from known param names
-			m.bipolar = (m.name != "lumakey" && m.name != "sharpen" && m.name != "delay" && m.name != "temporal" && m.name != "resonance");
-			if(m.cc >= 0 && m.index >= 0) {
-				continuousMap[m.cc] = m;
-			}
-		}
-	}
-
-	// Preferred schema: "buttons" array
-	if(midiConfig.isMember("buttons") && midiConfig["buttons"].isArray()) {
-		for(auto &b : midiConfig["buttons"]) {
-			MidiButtonMap m;
-			m.cc     = b.get("cc",-1).asInt();
-			m.action = b.get("action","").asString();
-			if(m.cc >= 0 && !m.action.empty()) {
-				buttonMap[m.cc] = m;
-			}
-		}
-	}
-	// Backward compatibility with previous "buttons" object
-	else if(midiConfig.isMember("buttons") && midiConfig["buttons"].isObject()) {
-		for(auto &member : midiConfig["buttons"]) {
-			int cc = ofToInt(member.memberName());
-			MidiButtonMap m;
-			m.cc = cc;
-			m.action = member.asString();
-			if(m.cc >= 0) {
-				buttonMap[m.cc] = m;
-			}
-		}
-	}
-}
-
-// Throttled hot-reload
-void ofApp::reloadMidiConfigIfChanged() {
-	uint64_t now = ofGetElapsedTimeMillis();
-	if(now < nextMidiConfigCheckMillis) return;
-	nextMidiConfigCheckMillis = now + 500; // check twice per second
-
-	ofFile f(midiConfigPath);
-	if(!f.exists()) return;
-	uint64_t ts = f.getPocoFile().getLastModified().epochMicroseconds();
-	if(ts != midiConfigTimestamp) {
-		ofLogNotice("MIDI") << "Config changed on disk, reloading";
-		loadMidiConfig();
-	}
-}
-
-// Apply continuous mapping generically
-void ofApp::applyContinuous(int cc, int value) {
-	auto it = continuousMap.find(cc);
-	if(it == continuousMap.end()) return;
-	const MidiContinuousMap &m = it->second;
-	if(m.index < 0 || m.index >= 16) return;
-
-	// Determine raw normalized value
-	float norm = m.bipolar
-		? ( (value - MIDI_MAGIC) / MIDI_MAGIC )    // -1 .. 1
-		: ( value / 127.0f );                     // 0 .. 1
-
-	// Scale to min/max (supports asymmetric ranges)
-	float scaled = ofMap(norm,
-	                     m.bipolar ? -1.0f : 0.0f,
-	                     1.0f,
-	                     m.minVal,
-	                     m.maxVal,
-	                     true);
-
-	// Respect existing gating logic (audio reactive & recording state)
-	if(audioReactiveControlSwitch == 0 && p_lock_0_switch == 1) {
-		if(abs(scaled - p_lock[m.index][p_lock_increment]) < CONTROL_THRESHOLD) {
-			midiActiveFloat[m.index] = true;
-		}
-		if(midiActiveFloat[m.index]) {
-			p_lock[m.index][p_lock_increment] = scaled;
-		}
-	}
-	// Support videoReactive alternative storage for first 12 like before
-	if(videoReactiveSwitch == 1) {
-		// Map first indices to legacy v* variables
-		switch(m.index) {
-			case 0:  vLumakeyValue = scaled; break;
-			case 1:  vMix = scaled; break;
-			case 2:  vHue = scaled; break;
-			case 3:  vSaturation = scaled; break;
-			case 4:  vBright = scaled; break;
-			case 5:  vTemporalFilterMix = scaled; break;
-			case 6:  vTemporalFilterResonance = scaled; break;
-			case 7:  vSharpenAmount = scaled; break;
-			case 8:  vX = scaled; break;
-			case 9:  vY = scaled; break;
-			case 10: vZ = scaled; break;
-			case 11: vRotate = scaled; break;
-			case 12: vHuexMod = scaled; break;
-			case 13: vHuexOff = scaled; break;
-			case 14: vHuexLfo = scaled; break;
-			default: break;
-		}
-	}
-}
-
-// Apply button/action mapping
-void ofApp::applyButton(int cc, int value) {
-	auto it = buttonMap.find(cc);
-	if(it == buttonMap.end()) return;
-	const std::string &action = it->second.action;
-
-	bool pressed = (value > 0);
-	if(action == "videoReactiveToggle") {
-		if(pressed) { videoReactiveSwitch = !videoReactiveSwitch; p_lock_0_switch = videoReactiveSwitch ? 0 : 1; }
-	}
-	else if(action == "pLockEnable") {
-		p_lock_switch = pressed;
-		if(pressed) {
-			for(int i=0;i<p_lock_number;i++){
-				p_lock_smoothed[i]=0;
-				for(int j=0;j<p_lock_size;j++){
-					p_lock[i][j]=p_lock[i][p_lock_increment];
-				}
-			}
-		}
-	}
-	else if(action == "clearFrames" && pressed) {
-		framebuffer0.begin(); ofClear(0,0,0,255); framebuffer0.end();
-		for(int i=0;i<framebufferLength;i++){ pastFrames[i].begin(); ofClear(0,0,0,255); pastFrames[i].end(); }
-	}
-	else if(action == "resetAll" && pressed) {
-		vLumakeyValue=vMix=vHue=vSaturation=vBright=vTemporalFilterMix=vTemporalFilterResonance=vSharpenAmount=
-		vX=vY=vZ=vRotate=vHuexMod=vHuexOff=vHuexLfo=0.0f;
-		for(int i=0;i<p_lock_number;i++){
-			for(int j=0;j<p_lock_size;j++){ p_lock[i][j]=0.0f; }
-			midiActiveFloat[i]=vmidiActiveFloat[i]=midiLowActiveFloat[i]=midiMidActiveFloat[i]=midiHighActiveFloat[i]=0;
-		}
-	}
-	else if(action == "wetDryToggle" && pressed) {
-		wet_dry_switch = !wet_dry_switch;
-	}
-	else if(action == "brightInvertToggle") {
-		brightInvert = pressed;
-	}
-	else if(action == "satInvertToggle") {
-		saturationInvert = pressed;
-	}
-	else if(action == "aspectRatioToggle" && pressed) {
-		hdmi_aspect_ratio_switch = !hdmi_aspect_ratio_switch;
-	}
-}
-
-// In setup() ensure initial load runs (already calls loadMidiConfig previously)
-//--------------------------------------------------------------
-void ofApp::setup() {
-    //ofSetVerticalSync(true);
-    ofSetFrameRate(30);
-    ofBackground(0);
-    //ofToggleFullscreen();
-    ofHideCursor();
-    //omx_settings();
-    inputSetup();
-    midiSetup();
-    loadMidiConfig(); // Load MIDI configuration
-    fbDeclareAndAllocate();
-    shader_mixer.load("shadersES2/shader_mixer");
-    shaderSharpen.load("shadersES2/shaderSharpen");
-    //fft biz
-    fft.setup();
-    fft.setNormalize(false);
-    //fft.setVolumeRange(1.0f);
-
-    p_lockClear();
-    midiLatchClear();
-}
-
-//--------------------------------------------------------------
-void ofApp::loadMidiConfig() {
-	ofFile f(midiConfigPath);
-	if(!f.exists()) {
-		ofLogError("MIDI") << "Config missing: " << midiConfigPath;
-		return;
-	}
-	if(!midiConfig.open(midiConfigPath)) {
-		ofLogError("MIDI") << "Failed to parse JSON: " << midiConfigPath;
-		return;
-	}
-	midiConfigTimestamp = f.getPocoFile().getLastModified().epochMicroseconds();
-	rebuildMidiMaps();
-	ofLogNotice("MIDI") << "Loaded mappings: continuous=" << continuousMap.size()
-	                    << " buttons=" << buttonMap.size();
-}
-
-// New: rebuild maps from JSON (supports flexible schema)
-void ofApp::rebuildMidiMaps() {
-	continuousMap.clear();
-	buttonMap.clear();
-
-	// Preferred schema: "continuous" array
-	if(midiConfig.isMember("continuous") && midiConfig["continuous"].isArray()) {
-		for(auto &c : midiConfig["continuous"]) {
-			MidiContinuousMap m;
-			m.cc      = c.get("cc",-1).asInt();
-			m.index   = c.get("index",-1).asInt();
-			m.name    = c.get("name","").asString();
-			m.bipolar = c.get("bipolar", false).asBool();
-			m.minVal  = c.get("min", 0.0).asFloat();
-			m.maxVal  = c.get("max", 1.0).asFloat();
-			if(m.cc >= 0 && m.index >= 0) {
-				continuousMap[m.cc] = m;
-			}
-		}
-	}
-	// Backward compatibility with previous "controls" object
-	else if(midiConfig.isMember("controls") && midiConfig["controls"].isObject()) {
-		for(auto &member : midiConfig["controls"]) {
-			int cc = ofToInt(member.memberName());
-			const auto &obj = member;
-			MidiContinuousMap m;
-			m.cc    = cc;
-			m.index = obj.get("index",-1).asInt();
-			m.name  = obj.get("param","").asString();
-			// Infer bipolar from known param names
-			m.bipolar = (m.name != "lumakey" && m.name != "sharpen" && m.name != "delay" && m.name != "temporal" && m.name != "resonance");
-			if(m.cc >= 0 && m.index >= 0) {
-				continuousMap[m.cc] = m;
-			}
-		}
-	}
-
-	// Preferred schema: "buttons" array
-	if(midiConfig.isMember("buttons") && midiConfig["buttons"].isArray()) {
-		for(auto &b : midiConfig["buttons"]) {
-			MidiButtonMap m;
-			m.cc     = b.get("cc",-1).asInt();
-			m.action = b.get("action","").asString();
-			if(m.cc >= 0 && !m.action.empty()) {
-				buttonMap[m.cc] = m;
-			}
-		}
-	}
-	// Backward compatibility with previous "buttons" object
-	else if(midiConfig.isMember("buttons") && midiConfig["buttons"].isObject()) {
-		for(auto &member : midiConfig["buttons"]) {
-			int cc = ofToInt(member.memberName());
-			MidiButtonMap m;
-			m.cc = cc;
-			m.action = member.asString();
-			if(m.cc >= 0) {
-				buttonMap[m.cc] = m;
-			}
-		}
-	}
-}
-
-// Throttled hot-reload
-void ofApp::reloadMidiConfigIfChanged() {
-	uint64_t now = ofGetElapsedTimeMillis();
-	if(now < nextMidiConfigCheckMillis) return;
-	nextMidiConfigCheckMillis = now + 500; // check twice per second
-
-	ofFile f(midiConfigPath);
-	if(!f.exists()) return;
-	uint64_t ts = f.getPocoFile().getLastModified().epochMicroseconds();
-	if(ts != midiConfigTimestamp) {
-		ofLogNotice("MIDI") << "Config changed on disk, reloading";
-		loadMidiConfig();
-	}
-}
-
-// Apply continuous mapping generically
-void ofApp::applyContinuous(int cc, int value) {
-	auto it = continuousMap.find(cc);
-	if(it == continuousMap.end()) return;
-	const MidiContinuousMap &m = it->second;
-	if(m.index < 0 || m.index >= 16) return;
-
-	// Determine raw normalized value
-	float norm = m.bipolar
-		? ( (value - MIDI_MAGIC) / MIDI_MAGIC )    // -1 .. 1
-		: ( value / 127.0f );                     // 0 .. 1
-
-	// Scale to min/max (supports asymmetric ranges)
-	float scaled = ofMap(norm,
-	                     m.bipolar ? -1.0f : 0.0f,
-	                     1.0f,
-	                     m.minVal,
-	                     m.maxVal,
-	                     true);
-
-	// Respect existing gating logic (audio reactive & recording state)
-	if(audioReactiveControlSwitch == 0 && p_lock_0_switch == 1) {
-		if(abs(scaled - p_lock[m.index][p_lock_increment]) < CONTROL_THRESHOLD) {
-			midiActiveFloat[m.index] = true;
-		}
-		if(midiActiveFloat[m.index]) {
-			p_lock[m.index][p_lock_increment] = scaled;
-		}
-	}
-	// Support videoReactive alternative storage for first 12 like before
-	if(videoReactiveSwitch == 1) {
-		// Map first indices to legacy v* variables
-		switch(m.index) {
-			case 0:  vLumakeyValue = scaled; break;
-			case 1:  vMix = scaled; break;
-			case 2:  vHue = scaled; break;
-			case 3:  vSaturation = scaled; break;
-			case 4:  vBright = scaled; break;
-			case 5:  vTemporalFilterMix = scaled; break;
-			case 6:  vTemporalFilterResonance = scaled; break;
-			case 7:  vSharpenAmount = scaled; break;
-			case 8:  vX = scaled; break;
-			case 9:  vY = scaled; break;
-			case 10: vZ = scaled; break;
-			case 11: vRotate = scaled; break;
-			case 12: vHuexMod = scaled; break;
-			case 13: vHuexOff = scaled; break;
-			case 14: vHuexLfo = scaled; break;
-			default: break;
-		}
-	}
-}
-
-// Apply button/action mapping
-void ofApp::applyButton(int cc, int value) {
-	auto it = buttonMap.find(cc);
-	if(it == buttonMap.end()) return;
-	const std::string &action = it->second.action;
-
-	bool pressed = (value > 0);
-	if(action == "videoReactiveToggle") {
-		if(pressed) { videoReactiveSwitch = !videoReactiveSwitch; p_lock_0_switch = videoReactiveSwitch ? 0 : 1; }
-	}
-	else if(action == "pLockEnable") {
-		p_lock_switch = pressed;
-		if(pressed) {
-			for(int i=0;i<p_lock_number;i++){
-				p_lock_smoothed[i]=0;
-				for(int j=0;j<p_lock_size;j++){
-					p_lock[i][j]=p_lock[i][p_lock_increment];
-				}
-			}
-		}
-	}
-	else if(action == "clearFrames" && pressed) {
-		framebuffer0.begin(); ofClear(0,0,0,255); framebuffer0.end();
-		for(int i=0;i<framebufferLength;i++){ pastFrames[i].begin(); ofClear(0,0,0,255); pastFrames[i].end(); }
-	}
-	else if(action == "resetAll" && pressed) {
-		vLumakeyValue=vMix=vHue=vSaturation=vBright=vTemporalFilterMix=vTemporalFilterResonance=vSharpenAmount=
-		vX=vY=vZ=vRotate=vHuexMod=vHuexOff=vHuexLfo=0.0f;
-		for(int i=0;i<p_lock_number;i++){
-			for(int j=0;j<p_lock_size;j++){ p_lock[i][j]=0.0f; }
-			midiActiveFloat[i]=vmidiActiveFloat[i]=midiLowActiveFloat[i]=midiMidActiveFloat[i]=midiHighActiveFloat[i]=0;
-		}
-	}
-	else if(action == "wetDryToggle" && pressed) {
-		wet_dry_switch = !wet_dry_switch;
-	}
-	else if(action == "brightInvertToggle") {
-		brightInvert = pressed;
-	}
-	else if(action == "satInvertToggle") {
-		saturationInvert = pressed;
-	}
-	else if(action == "aspectRatioToggle" && pressed) {
-		hdmi_aspect_ratio_switch = !hdmi_aspect_ratio_switch;
-	}
-}
-
-// In setup() ensure initial load runs (already calls loadMidiConfig previously)
-//--------------------------------------------------------------
-void ofApp::setup() {
-    //ofSetVerticalSync(true);
-    ofSetFrameRate(30);
-    ofBackground(0);
-    //ofToggleFullscreen();
-    ofHideCursor();
-    //omx_settings();
-    inputSetup();
-    midiSetup();
-    loadMidiConfig(); // Load MIDI configuration
-    fbDeclareAndAllocate();
-    shader_mixer.load("shadersES2/shader_mixer");
-    shaderSharpen.load("shadersES2/shaderSharpen");
-    //fft biz
-    fft.setup();
-    fft.setNormalize(false);
-    //fft.setVolumeRange(1.0f);
-
-    p_lockClear();
-    midiLatchClear();
-}
-
-//--------------------------------------------------------------
-void ofApp::loadMidiConfig() {
-	ofFile f(midiConfigPath);
-	if(!f.exists()) {
-		ofLogError("MIDI") << "Config missing: " << midiConfigPath;
-		return;
-	}
-	if(!midiConfig.open(midiConfigPath)) {
-		ofLogError("MIDI") << "Failed to parse JSON: " << midiConfigPath;
-		return;
-	}
-	midiConfigTimestamp = f.getPocoFile().getLastModified().epochMicroseconds();
-	rebuildMidiMaps();
-	ofLogNotice("MIDI") << "Loaded mappings: continuous=" << continuousMap.size()
-	                    << " buttons=" << buttonMap.size();
-}
-
-// New: rebuild maps from JSON (supports flexible schema)
-void ofApp::rebuildMidiMaps() {
-	continuousMap.clear();
-	buttonMap.clear();
-
-	// Preferred schema: "continuous" array
-	if(midiConfig.isMember("continuous") && midiConfig["continuous"].isArray()) {
-		for(auto &c : midiConfig["continuous"]) {
-			MidiContinuousMap m;
-			m.cc      = c.get("cc",-1).asInt();
-			m.index   = c.get("index",-1).asInt();
-			m.name    = c.get("name","").asString();
-			m.bipolar = c.get("bipolar", false).asBool();
-			m.minVal  = c.get("min", 0.0).asFloat();
-			m.maxVal  = c.get("max", 1.0).asFloat();
-			if(m.cc >= 0 && m.index >= 0) {
-				continuousMap[m.cc] = m;
-			}
-		}
-	}
-	// Backward compatibility with previous "controls" object
-	else if(midiConfig.isMember("controls") && midiConfig["controls"].isObject()) {
-		for(auto &member : midiConfig["controls"]) {
-			int cc = ofToInt(member.memberName());
-			const auto &obj = member;
-			MidiContinuousMap m;
-			m.cc    = cc;
-			m.index = obj.get("index",-1).asInt();
-			m.name  = obj.get("param","").asString();
-			// Infer bipolar from known param names
-			m.bipolar = (m.name != "lumakey" && m.name != "sharpen" && m.name != "delay" && m.name != "temporal" && m.name != "resonance");
-			if(m.cc >= 0 && m.index >= 0) {
-				continuousMap[m.cc] = m;
-			}
-		}
-	}
-
-	// Preferred schema: "buttons" array
-	if(midiConfig.isMember("buttons") && midiConfig["buttons"].isArray()) {
-		for(auto &b : midiConfig["buttons"]) {
-			MidiButtonMap m;
-			m.cc     = b.get("cc",-1).asInt();
-			m.action = b.get("action","").asString();
-			if(m.cc >= 0 && !m.action.empty()) {
-				buttonMap[m.cc] = m;
-			}
-		}
-	}
-	// Backward compatibility with previous "buttons" object
-	else if(midiConfig.isMember("buttons") && midiConfig["buttons"].isObject()) {
-		for(auto &member : midiConfig["buttons"]) {
-			int cc = ofToInt(member.memberName());
-			MidiButtonMap m;
-			m.cc = cc;
-			m.action = member.asString();
-			if(m.cc >= 0) {
-				buttonMap[m.cc] = m;
-			}
-		}
-	}
-}
-
-// Throttled hot-reload
-void ofApp::reloadMidiConfigIfChanged() {
-	uint64_t now = ofGetElapsedTimeMillis();
-	if(now < nextMidiConfigCheckMillis) return;
-	nextMidiConfigCheckMillis = now + 500; // check twice per second
-
-	ofFile f(midiConfigPath);
-	if(!f.exists()) return;
-	uint64_t ts = f.getPocoFile().getLastModified().epochMicroseconds();
-	if(ts != midiConfigTimestamp) {
-		ofLogNotice("MIDI") << "Config changed on disk, reloading";
-		loadMidiConfig();
-	}
-}
-
-// Apply continuous mapping generically
-void ofApp::applyContinuous(int cc, int value) {
-	auto it = continuousMap.find(cc);
-	if(it == continuousMap.end()) return;
-	const MidiContinuousMap &m = it->second;
-	if(m.index < 0 || m.index >= 16) return;
-
-	// Determine raw normalized value
-	float norm = m.bipolar
-		? ( (value - MIDI_MAGIC) / MIDI_MAGIC )    // -1 .. 1
-		: ( value / 127.0f );                     // 0 .. 1
-
-	// Scale to min/max (supports asymmetric ranges)
-	float scaled = ofMap(norm,
-	                     m.bipolar ? -1.0f : 0.0f,
-	                     1.0f,
-	                     m.minVal,
-	                     m.maxVal,
-	                     true);
-
-	// Respect existing gating logic (audio reactive & recording state)
-	if(audioReactiveControlSwitch == 0 && p_lock_0_switch == 1) {
-		if(abs(scaled - p_lock[m.index][p_lock_increment]) < CONTROL_THRESHOLD) {
-			midiActiveFloat[m.index] = true;
-		}
-		if(midiActiveFloat[m.index]) {
-			p_lock[m.index][p_lock_increment] = scaled;
-		}
-	}
-	// Support videoReactive alternative storage for first 12 like before
-	if(videoReactiveSwitch == 1) {
-		// Map first indices to legacy v* variables
-		switch(m.index) {
-			case 0:  vLumakeyValue = scaled; break;
-			case 1:  vMix = scaled; break;
-			case 2:  vHue = scaled; break;
-			case 3:  vSaturation = scaled; break;
-			case 4:  vBright = scaled; break;
-			case 5:  vTemporalFilterMix = scaled; break;
-			case 6:  vTemporalFilterResonance = scaled; break;
-			case 7:  vSharpenAmount = scaled; break;
-			case 8:  vX = scaled; break;
-			case 9:  vY = scaled; break;
-			case 10: vZ = scaled; break;
-			case 11: vRotate = scaled; break;
-			case 12: vHuexMod = scaled; break;
-			case 13: vHuexOff = scaled; break;
-			case 14: vHuexLfo = scaled; break;
-			default: break;
-		}
-	}
-}
-
-// Apply button/action mapping
-void ofApp::applyButton(int cc, int value) {
-	auto it = buttonMap.find(cc);
-	if(it == buttonMap.end()) return;
-	const std::string &action = it->second.action;
-
-	bool pressed = (value > 0);
-	if(action == "videoReactiveToggle") {
-		if(pressed) { videoReactiveSwitch = !videoReactiveSwitch; p_lock_0_switch = videoReactiveSwitch ? 0 : 1; }
-	}
-	else if(action == "pLockEnable") {
-		p_lock_switch = pressed;
-		if(pressed) {
-			for(int i=0;i<p_lock_number;i++){
-				p_lock_smoothed[i]=0;
-				for(int j=0;j<p_lock_size;j++){
-					p_lock[i][j]=p_lock[i][p_lock_increment];
-				}
-			}
-		}
-	}
-	else if(action == "clearFrames" && pressed) {
-		framebuffer0.begin(); ofClear(0,0,0,255); framebuffer0.end();
-		for(int i=0;i<framebufferLength;i++){ pastFrames[i].begin(); ofClear(0,0,0,255); pastFrames[i].end(); }
-	}
-	else if(action == "resetAll" && pressed) {
-		vLumakeyValue=vMix=vHue=vSaturation=vBright=vTemporalFilterMix=vTemporalFilterResonance=vSharpenAmount=
-		vX=vY=vZ=vRotate=vHuexMod=vHuexOff=vHuexLfo=0.0f;
-		for(int i=0;i<p_lock_number;i++){
-			for(int j=0;j<p_lock_size;j++){ p_lock[i][j]=0.0f; }
-			midiActiveFloat[i]=vmidiActiveFloat[i]=midiLowActiveFloat[i]=midiMidActiveFloat[i]=midiHighActiveFloat[i]=0;
-		}
-	}
-	else if(action == "wetDryToggle" && pressed) {
-		wet_dry_switch = !wet_dry_switch;
-	}
-	else if(action == "brightInvertToggle") {
-		brightInvert = pressed;
-	}
-	else if(action == "satInvertToggle") {
-		saturationInvert = pressed;
-	}
-	else if(action == "aspectRatioToggle" && pressed) {
-		hdmi_aspect_ratio_switch = !hdmi_aspect_ratio_switch;
-	}
-}
-
-// Inject hot-reload call & dynamic dispatch near start of midibiz loop
+//-----------------------------------------------------------
 void ofApp::midibiz(){
-	reloadMidiConfigIfChanged(); // NEW: check for file edits
+	reloadMidiConfigIfChanged();
 
 	for(unsigned int i = 0; i < midiMessages.size(); ++i) {
 		ofxMidiMessage &message = midiMessages[i];
 		if(message.status < MIDI_SYSEX && message.status == MIDI_CONTROL_CHANGE) {
 
-			// 1. Dynamic button mapping
 			if(buttonMap.find(message.control) != buttonMap.end()) {
 				applyButton(message.control, message.value);
 				continue;
 			}
-			// 2. Dynamic continuous mapping
 			if(continuousMap.find(message.control) != continuousMap.end()) {
 				applyContinuous(message.control, message.value);
 				continue;
@@ -2430,6 +861,7 @@ void ofApp::midibiz(){
                     }
                 }
             }
+
             //c3 maps to fb hue
             if(message.control==18){
                 if(audioReactiveControlSwitch==0){
@@ -2793,1931 +1225,523 @@ void ofApp::midibiz(){
             //c9 maps to fb x displace
             if(message.control==120){
                 if(audioReactiveControlSwitch==0){
-                    midiLowActiveFloat[8]=0;
-                    midiMidActiveFloat[8]=0;
-                    midiHighActiveFloat[8]=0;
-                    if(p_lock_0_switch==1){
-                        vmidiActiveFloat[8]=0;
-                        if(abs((message.value-MIDI_MAGIC)/MIDI_MAGIC-p_lock[8][p_lock_increment])<CONTROL_THRESHOLD){
-                            midiActiveFloat[8]=1;
-                        }
-                        if(midiActiveFloat[8]==1){
-                            p_lock[8][p_lock_increment]=(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                            if(x_2==TRUE){
-                                p_lock[8][p_lock_increment]=2.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                            }
-                            if(x_5==TRUE){
-                                p_lock[8][p_lock_increment]=5.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                            }
-                            if(x_10==TRUE){
-                                p_lock[8][p_lock_increment]=10.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                            }
-                        }
+                    p_lock[8][p_lock_increment]=(message.value-63)/63.0f;
+
+                    if(x_2==TRUE){
+                        p_lock[8][p_lock_increment]=2.0*(message.value-63.0)/63.0f;
                     }
-                    if(videoReactiveSwitch==1){
-                        midiActiveFloat[8]=0;
-                        if(abs((message.value-MIDI_MAGIC)/MIDI_MAGIC-vX)<CONTROL_THRESHOLD){
-                            vmidiActiveFloat[8]=1;
-                        }
-                        if(vmidiActiveFloat[8]==1){
-                            vX=(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                            if(x_2==TRUE){
-                                vX=2.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                            }
-                            if(x_5==TRUE){
-                                vX=5.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                            }
-                            if(x_10==TRUE){
-                                vX=10.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                            }
-                        }
+
+                    if(x_5==TRUE){
+                        p_lock[8][p_lock_increment]=5.0*(message.value-63.0)/63.0f;
+                    }
+                    if(x_10==TRUE){
+                        p_lock[8][p_lock_increment]=10.0*(message.value-63.0)/63.0f;
                     }
                 }
-                if(audioReactiveControlSwitch!=0){
-                    midiActiveFloat[8]=0;
-                    vmidiActiveFloat[8]=0;
-                }
+
                 if(audioReactiveControlSwitch==1){
-                    midiMidActiveFloat[8]=0;
-                    midiHighActiveFloat[8]=0;
-                    if(abs((message.value-MIDI_MAGIC)/MIDI_MAGIC-lowC9)<CONTROL_THRESHOLD){
-                        midiLowActiveFloat[8]=1;
+                    lowC9=(message.value-63)/63.0f;
+
+                    if(x_2==TRUE){
+                        lowC9=2.0*(message.value-63.0)/63.0f;
                     }
-                    if(midiLowActiveFloat[8]==1){
-                        lowC9=(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        if(x_2==TRUE){
-                            lowC9=2.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        }
-                        if(x_5==TRUE){
-                            lowC9=5.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        }
-                        if(x_10==TRUE){
-                            lowC9=10.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        }
+
+                    if(x_5==TRUE){
+                        lowC9=5.0*(message.value-63.0)/63.0f;
+                    }
+                    if(x_10==TRUE){
+                        lowC9=10.0*(message.value-63.0)/63.0f;
                     }
                 }
+
                 if(audioReactiveControlSwitch==2){
-                    midiLowActiveFloat[8]=0;
-                    midiHighActiveFloat[8]=0;
-                    if(abs((message.value-MIDI_MAGIC)/MIDI_MAGIC-midC9)<CONTROL_THRESHOLD){
-                        midiMidActiveFloat[8]=1;
+                    midC9=(message.value-63)/63.0f;
+
+                    if(x_2==TRUE){
+                        midC9=2.0*(message.value-63.0)/63.0f;
                     }
-                    if(midiMidActiveFloat[8]==1){
-                        midC9=(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        if(x_2==TRUE){
-                            midC9=2.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        }
-                        if(x_5==TRUE){
-                            midC9=5.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        }
-                        if(x_10==TRUE){
-                            midC9=10.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        }
+
+                    if(x_5==TRUE){
+                        midC9=5.0*(message.value-63.0)/63.0f;
+                    }
+                    if(x_10==TRUE){
+                        midC9=10.0*(message.value-63.0)/63.0f;
                     }
                 }
+
                 if(audioReactiveControlSwitch==3){
-                    midiLowActiveFloat[8]=0;
-                    midiMidActiveFloat[8]=0;
-                    if(abs((message.value-MIDI_MAGIC)/MIDI_MAGIC-highC9)<CONTROL_THRESHOLD){
-                        midiHighActiveFloat[8]=1;
+                    highC9=(message.value-63)/63.0f;
+
+                    if(x_2==TRUE){
+                        highC9=2.0*(message.value-63.0)/63.0f;
                     }
-                    if(midiHighActiveFloat[8]==1){
-                        highC9=(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        if(x_2==TRUE){
-                            highC9=2.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        }
-                        if(x_5==TRUE){
-                            highC9=5.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        }
-                        if(x_10==TRUE){
-                            highC9=10.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        }
+
+                    if(x_5==TRUE){
+                        highC9=5.0*(message.value-63.0)/63.0f;
+                    }
+                    if(x_10==TRUE){
+                        highC9=10.0*(message.value-63.0)/63.0f;
                     }
                 }
+
             }
+
+            //c10 maps to fb y displace
             if(message.control==121){
                 if(audioReactiveControlSwitch==0){
-                    midiLowActiveFloat[9]=0;
-                    midiMidActiveFloat[9]=0;
-                    midiHighActiveFloat[9]=0;
-                    if(p_lock_0_switch==1){
-                        vmidiActiveFloat[9]=0;
-                        if(abs((message.value-MIDI_MAGIC)/MIDI_MAGIC-p_lock[9][p_lock_increment])<CONTROL_THRESHOLD){
-                            midiActiveFloat[9]=1;
-                        }
-                        if(midiActiveFloat[9]==1){
-                            p_lock[9][p_lock_increment]=(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                            if(y_2==TRUE){
-                                p_lock[9][p_lock_increment]=2.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                            }
-                            if(y_5==TRUE){
-                                p_lock[9][p_lock_increment]=5.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                            }
-                            if(y_10==TRUE){
-                                p_lock[9][p_lock_increment]=10.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                            }
-                        }
+                    p_lock[9][p_lock_increment]=(message.value-63)/63.0f;
+
+                    if(y_2==TRUE){
+                        p_lock[9][p_lock_increment]=2.0*(message.value-63.0)/63.0f;
                     }
-                    if(videoReactiveSwitch==1){
-                        midiActiveFloat[9]=0;
-                        if(abs((message.value-MIDI_MAGIC)/MIDI_MAGIC-vY)<CONTROL_THRESHOLD){
-                            vmidiActiveFloat[9]=1;
-                        }
-                        if(vmidiActiveFloat[9]==1){
-                            vY=(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                            if(y_2==TRUE){
-                                vY=2.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                            }
-                            if(y_5==TRUE){
-                                vY=5.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                            }
-                            if(y_10==TRUE){
-                                vY=10.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                            }
-                        }
+
+                    if(y_5==TRUE){
+                        p_lock[9][p_lock_increment]=5.0*(message.value-63.0)/63.0f;
+                    }
+                    if(y_10==TRUE){
+                        p_lock[9][p_lock_increment]=10.0*(message.value-63.0)/63.0f;
                     }
                 }
-                if(audioReactiveControlSwitch!=0){
-                    midiActiveFloat[9]=0;
-                    vmidiActiveFloat[9]=0;
-                }
+
                 if(audioReactiveControlSwitch==1){
-                    midiMidActiveFloat[9]=0;
-                    midiHighActiveFloat[9]=0;
-                    if(abs((message.value-MIDI_MAGIC)/MIDI_MAGIC-lowC10)<CONTROL_THRESHOLD){
-                        midiLowActiveFloat[9]=1;
+                    lowC10=(message.value-63)/63.0f;
+
+                    if(y_2==TRUE){
+                        lowC10=2.0*(message.value-63.0)/63.0f;
                     }
-                    if(midiLowActiveFloat[9]==1){
-                        lowC10=(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        if(y_2==TRUE){
-                            lowC10=2.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        }
-                        if(y_5==TRUE){
-                            lowC10=5.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        }
-                        if(y_10==TRUE){
-                            lowC10=10.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        }
+
+                    if(y_5==TRUE){
+                        lowC10=5.0*(message.value-63.0)/63.0f;
+                    }
+                    if(y_10==TRUE){
+                        lowC10=10.0*(message.value-63.0)/63.0f;
                     }
                 }
+
                 if(audioReactiveControlSwitch==2){
-                    midiLowActiveFloat[9]=0;
-                    midiHighActiveFloat[9]=0;
-                    if(abs((message.value-MIDI_MAGIC)/MIDI_MAGIC-midC10)<CONTROL_THRESHOLD){
-                        midiMidActiveFloat[9]=1;
+                    midC10=(message.value-63)/63.0f;
+
+                    if(y_2==TRUE){
+                        midC10=2.0*(message.value-63.0)/63.0f;
                     }
-                    if(midiMidActiveFloat[9]==1){
-                        midC10=(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        if(y_2==TRUE){
-                            midC10=2.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        }
-                        if(y_5==TRUE){
-                            midC10=5.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        }
-                        if(y_10==TRUE){
-                            midC10=10.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        }
+
+                    if(y_5==TRUE){
+                        midC10=5.0*(message.value-63.0)/63.0f;
+                    }
+                    if(y_10==TRUE){
+                        midC10=10.0*(message.value-63.0)/63.0f;
                     }
                 }
+
                 if(audioReactiveControlSwitch==3){
-                    midiLowActiveFloat[9]=0;
-                    midiMidActiveFloat[9]=0;
-                    if(abs((message.value-MIDI_MAGIC)/MIDI_MAGIC-highC10)<CONTROL_THRESHOLD){
-                        midiHighActiveFloat[9]=1;
+                    highC10=(message.value-63)/63.0f;
+
+                    if(y_2==TRUE){
+                        highC10=2.0*(message.value-63.0)/63.0f;
                     }
-                    if(midiHighActiveFloat[9]==1){
-                        highC10=(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        if(y_2==TRUE){
-                            highC10=2.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        }
-                        if(y_5==TRUE){
-                            highC10=5.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        }
-                        if(y_10==TRUE){
-                            highC10=10.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        }
+
+                    if(y_5==TRUE){
+                        highC10=5.0*(message.value-63.0)/63.0f;
+                    }
+                    if(y_10==TRUE){
+                        highC10=10.0*(message.value-63.0)/63.0f;
                     }
                 }
+
             }
-            //z displace
+
+
             if(message.control==122){
                 if(audioReactiveControlSwitch==0){
-                    midiLowActiveFloat[10]=0;
-                    midiMidActiveFloat[10]=0;
-                    midiHighActiveFloat[10]=0;
-                    if(p_lock_0_switch==1){
-                        vmidiActiveFloat[10]=0;
-                        if(abs((message.value-MIDI_MAGIC)/MIDI_MAGIC-p_lock[10][p_lock_increment])<CONTROL_THRESHOLD){
-                            midiActiveFloat[10]=1;
-                        }
-                        if(midiActiveFloat[10]==1){
-                            p_lock[10][p_lock_increment]=(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                            if(z_2==TRUE){
-                                p_lock[10][p_lock_increment]=2.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                            }
-                            if(z_5==TRUE){
-                                p_lock[10][p_lock_increment]=5.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                            }
-                            if(z_10==TRUE){
-                                p_lock[10][p_lock_increment]=10.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                            }
-                        }
+                    p_lock[10][p_lock_increment]=(message.value-63.0)/63.0f;
+
+                    if(z_2==TRUE){
+                        p_lock[10][p_lock_increment]=2.0*(message.value-63.0)/63.0f;
                     }
-                    if(videoReactiveSwitch==1){
-                        midiActiveFloat[10]=0;
-                        if(abs((message.value-MIDI_MAGIC)/MIDI_MAGIC-vZ)<CONTROL_THRESHOLD){
-                            vmidiActiveFloat[10]=1;
-                        }
-                        if(vmidiActiveFloat[10]==1){
-                            vZ=(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                            if(z_2==TRUE){
-                                vZ=2.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                            }
-                            if(z_5==TRUE){
-                                vZ=5.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                            }
-                            if(z_10==TRUE){
-                                vZ=10.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                            }
-                        }
+
+                    if(z_5==TRUE){
+                        p_lock[10][p_lock_increment]=5.0*(message.value-63.0)/63.0f;
+                    }
+                    if(z_10==TRUE){
+                        p_lock[10][p_lock_increment]=10.0*(message.value-63.0)/63.0f;
                     }
                 }
-                if(audioReactiveControlSwitch!=0){
-                    midiActiveFloat[10]=0;
-                    vmidiActiveFloat[10]=0;
-                }
+
                 if(audioReactiveControlSwitch==1){
-                    midiMidActiveFloat[10]=0;
-                    midiHighActiveFloat[10]=0;
-                    if(abs((message.value-MIDI_MAGIC)/MIDI_MAGIC-lowC11)<CONTROL_THRESHOLD){
-                        midiLowActiveFloat[10]=1;
+                    lowC11=(message.value-63.0)/63.0f;
+
+                    if(z_2==TRUE){
+                        lowC11=2.0*(message.value-63.0)/63.0f;
                     }
-                    if(midiLowActiveFloat[10]==1){
-                        lowC11=(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        if(z_2==TRUE){
-                            lowC11=2.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        }
-                        if(z_5==TRUE){
-                            lowC11=5.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        }
-                        if(z_10==TRUE){
-                            lowC11=10.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        }
+
+                    if(z_5==TRUE){
+                        lowC11=5.0*(message.value-63.0)/63.0f;
+                    }
+                    if(z_10==TRUE){
+                        lowC11=10.0*(message.value-63.0)/63.0f;
                     }
                 }
+
                 if(audioReactiveControlSwitch==2){
-                    midiLowActiveFloat[10]=0;
-                    midiHighActiveFloat[10]=0;
-                    if(abs((message.value-MIDI_MAGIC)/MIDI_MAGIC-midC11)<CONTROL_THRESHOLD){
-                        midiMidActiveFloat[10]=1;
+                    midC11=(message.value-63.0)/63.0f;
+
+                    if(z_2==TRUE){
+                        midC11=2.0*(message.value-63.0)/63.0f;
                     }
-                    if(midiMidActiveFloat[10]==1){
-                        midC11=(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        if(z_2==TRUE){
-                            midC11=2.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        }
-                        if(z_5==TRUE){
-                            midC11=5.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        }
-                        if(z_10==TRUE){
-                            midC11=10.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        }
+
+                    if(z_5==TRUE){
+                        midC11=5.0*(message.value-63.0)/63.0f;
+                    }
+                    if(z_10==TRUE){
+                        midC11=10.0*(message.value-63.0)/63.0f;
                     }
                 }
+
                 if(audioReactiveControlSwitch==3){
-                    midiLowActiveFloat[10]=0;
-                    midiMidActiveFloat[10]=0;
-                    if(abs((message.value-MIDI_MAGIC)/MIDI_MAGIC-highC11)<CONTROL_THRESHOLD){
-                        midiHighActiveFloat[10]=1;
+                    highC11=(message.value-63.0)/63.0f;
+
+                    if(z_2==TRUE){
+                        highC11=2.0*(message.value-63.0)/63.0f;
                     }
-                    if(midiHighActiveFloat[10]==1){
-                        highC11=message.value/MIDI_MAGIC;
-                        if(z_2==TRUE){
-                            highC11=2.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        }
-                        if(z_5==TRUE){
-                            highC11=5.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        }
-                        if(z_10==TRUE){
-                            highC11=10.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        }
+
+                    if(z_5==TRUE){
+                        highC11=5.0*(message.value-63.0)/63.0f;
+                    }
+                    if(z_10==TRUE){
+                        highC11=10.0*(message.value-63.0)/63.0f;
                     }
                 }
             }
-            //rotations
+
             if(message.control==123){
                 if(audioReactiveControlSwitch==0){
-                    midiLowActiveFloat[11]=0;
-                    midiMidActiveFloat[11]=0;
-                    midiHighActiveFloat[11]=0;
-                    if(p_lock_0_switch==1){
-                        vmidiActiveFloat[11]=0;
-                        if(abs((message.value-MIDI_MAGIC)/MIDI_MAGIC-p_lock[11][p_lock_increment])<CONTROL_THRESHOLD){
-                            midiActiveFloat[11]=1;
-                        }
-                        if(midiActiveFloat[11]==1){
-                            p_lock[11][p_lock_increment]=(message.value-MIDI_MAGIC)/MIDI_MAGIC;
+                    p_lock[11][p_lock_increment]=(message.value-63)/63.0f;
 
-                            if(r_2==TRUE){
-                                p_lock[11][p_lock_increment]=2*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                            }
-                            if(r_5==TRUE){
-                                p_lock[11][p_lock_increment]=4*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                            }
-                            if(r_10==TRUE){
-                                p_lock[11][p_lock_increment]=8*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                            }
-                        }
+                    if(r_2==TRUE){
+                        p_lock[11][p_lock_increment]=2*(message.value-63.0)/63.0f;
                     }
-                    if(videoReactiveSwitch==1){
-                        midiActiveFloat[11]=0;
-                        if(abs((message.value-MIDI_MAGIC)/MIDI_MAGIC-vRotate)<CONTROL_THRESHOLD){
-                            vmidiActiveFloat[11]=1;
-                        }
-                        if(vmidiActiveFloat[11]==1){
-                            vRotate=(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                            if(r_2==TRUE){
-                                vRotate=2.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                            }
-                            if(r_5==TRUE){
-                                vRotate=5.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                            }
-                            if(r_10==TRUE){
-                                vRotate=10.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                            }
-                        }
+
+                    if(r_5==TRUE){
+                        p_lock[11][p_lock_increment]=4*(message.value-63.0)/63.0f;
+                    }
+                    if(r_10==TRUE){
+                        p_lock[11][p_lock_increment]=8*(message.value-63.0)/63.0f;
                     }
                 }
-                if(audioReactiveControlSwitch!=0){
-                    midiActiveFloat[11]=0;
-                    vmidiActiveFloat[11]=0;
-                }
+
                 if(audioReactiveControlSwitch==1){
-                    midiMidActiveFloat[11]=0;
-                    midiHighActiveFloat[11]=0;
-                    if(abs((message.value-MIDI_MAGIC)/MIDI_MAGIC-lowC12)<CONTROL_THRESHOLD){
-                        midiLowActiveFloat[11]=1;
+                    lowC12=(message.value-63)/63.0f;
+
+                    if(r_2==TRUE){
+                        lowC12=2*(message.value-63.0)/63.0f;
                     }
-                    if(midiLowActiveFloat[11]==1){
-                        lowC12=(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        if(r_2==TRUE){
-                            lowC12=2*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        }
-                        if(r_5==TRUE){
-                            lowC12=4*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        }
-                        if(r_10==TRUE){
-                            lowC12=8*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        }
+
+                    if(r_5==TRUE){
+                        lowC12=4*(message.value-63.0)/63.0f;
+                    }
+                    if(r_10==TRUE){
+                        lowC12=8*(message.value-63.0)/63.0f;
                     }
                 }
+
                 if(audioReactiveControlSwitch==2){
-                    midiLowActiveFloat[11]=0;
-                    midiHighActiveFloat[11]=0;
-                    if(abs((message.value-MIDI_MAGIC)/MIDI_MAGIC-midC12)<CONTROL_THRESHOLD){
-                        midiMidActiveFloat[11]=1;
+                    midC12=(message.value-63)/63.0f;
+
+                    if(r_2==TRUE){
+                        midC12=2*(message.value-63.0)/63.0f;
                     }
-                    if(midiMidActiveFloat[11]==1){
-                        midC12=(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        if(r_2==TRUE){
-                            midC12=2*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        }
-                        if(r_5==TRUE){
-                            midC12=4*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        }
-                        if(r_10==TRUE){
-                            midC12=8*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        }
+
+                    if(r_5==TRUE){
+                        midC12=4*(message.value-63.0)/63.0f;
+                    }
+                    if(r_10==TRUE){
+                        midC12=8*(message.value-63.0)/63.0f;
                     }
                 }
+
                 if(audioReactiveControlSwitch==3){
-                    midiLowActiveFloat[11]=0;
-                    midiMidActiveFloat[11]=0;
-                    if(abs((message.value-MIDI_MAGIC)/MIDI_MAGIC-highC12)<CONTROL_THRESHOLD){
-                        midiHighActiveFloat[11]=1;
+                    highC12=(message.value-63)/63.0f;
+
+                    if(r_2==TRUE){
+                        highC12=2*(message.value-63.0)/63.0f;
                     }
-                    if(midiHighActiveFloat[11]==1){
-                        highC12=(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        if(r_2==TRUE){
-                            highC12=2*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        }
-                        if(r_5==TRUE){
-                            highC12=4*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        }
-                        if(r_10==TRUE){
-                            highC12=8*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        }
+
+                    if(r_5==TRUE){
+                        highC12=4*(message.value-63.0)/63.0f;
+                    }
+                    if(r_10==TRUE){
+                        highC12=8*(message.value-63.0)/63.0f;
                     }
                 }
             }
+
+
             if(message.control==124){
                 if(audioReactiveControlSwitch==0){
-                    midiLowActiveFloat[12]=0;
-                    midiMidActiveFloat[12]=0;
-                    midiHighActiveFloat[12]=0;
-                    if(p_lock_0_switch==1){
-                        vmidiActiveFloat[12]=0;
-                        if(abs(message.value/127.0f-p_lock[12][p_lock_increment])<CONTROL_THRESHOLD){
-                            midiActiveFloat[12]=1;
-                        }
-                        if(midiActiveFloat[12]==1){
-                            p_lock[12][p_lock_increment]=(message.value)/32.0f;
-                            if(huexx_0==TRUE){
-                                p_lock[12][p_lock_increment]=message.value/64.0f;
-                            }
-                            if(huexx_1==TRUE){
-                                p_lock[12][p_lock_increment]=message.value/96.0f;
-                            }
-                            if(huexx_2==TRUE){
-                                p_lock[12][p_lock_increment]=message.value/127.0f;
-                            }
-                        }
+                    p_lock[12][p_lock_increment]=(message.value)/32.0f;
+
+                    if(huexx_0==TRUE){
+                        p_lock[12][p_lock_increment]=message.value/64.0f;
                     }
-                    if(videoReactiveSwitch==1){
-                        midiActiveFloat[12]=0;
-                        if(abs(message.value/127.0f-vHuexMod)<CONTROL_THRESHOLD){
-                            vmidiActiveFloat[12]=1;
-                        }
-                        if(vmidiActiveFloat[12]==1){
-                            vHuexMod=(message.value)/32.0f;
-                            if(huexx_0==TRUE){
-                                vHuexMod=message.value/64.0f;
-                            }
-                            if(huexx_1==TRUE){
-                                vHuexMod=message.value/96.0f;
-                            }
-                            if(huexx_2==TRUE){
-                                vHuexMod=message.value/127.0f;
-                            }
-                        }
+
+                    if(huexx_1==TRUE){
+                        p_lock[12][p_lock_increment]=message.value/96.0f;
+                    }
+                    if(huexx_2==TRUE){
+                        p_lock[12][p_lock_increment]=message.value/127.0f;
                     }
                 }
-                if(audioReactiveControlSwitch!=0){
-                    midiActiveFloat[12]=0;
-                    vmidiActiveFloat[12]=0;
-                }
+
                 if(audioReactiveControlSwitch==1){
-                    midiMidActiveFloat[12]=0;
-                    midiHighActiveFloat[12]=0;
-                    if(abs(message.value/127.0f-lowC13)<CONTROL_THRESHOLD){
-                        midiLowActiveFloat[12]=1;
+                    lowC13=(message.value)/32.0f;
+
+                    if(huexx_0==TRUE){
+                        lowC13=message.value/64.0f;
                     }
-                    if(midiLowActiveFloat[12]==1){
-                        lowC13=(message.value)/32.0f;
-                        if(huexx_0==TRUE){
-                            lowC13=message.value/64.0f;
-                        }
-                        if(huexx_1==TRUE){
-                            lowC13=message.value/96.0f;
-                        }
-                        if(huexx_2==TRUE){
-                            lowC13=message.value/127.0f;
-                        }
+
+                    if(huexx_1==TRUE){
+                        lowC13=message.value/96.0f;
+                    }
+                    if(huexx_2==TRUE){
+                        lowC13=message.value/127.0f;
                     }
                 }
+
                 if(audioReactiveControlSwitch==2){
-                    midiLowActiveFloat[12]=0;
-                    midiHighActiveFloat[12]=0;
-                    if(abs(message.value/127.0f-midC13)<CONTROL_THRESHOLD){
-                        midiMidActiveFloat[12]=1;
+                    midC13=(message.value)/32.0f;
+
+                    if(huexx_0==TRUE){
+                        midC13=message.value/64.0f;
                     }
-                    if(midiMidActiveFloat[12]==1){
-                        midC13=(message.value)/32.0f;
-                        if(huexx_0==TRUE){
-                            midC13=message.value/64.0f;
-                        }
-                        if(huexx_1==TRUE){
-                            midC13=message.value/96.0f;
-                        }
-                        if(huexx_2==TRUE){
-                            midC13=message.value/127.0f;
-                        }
+
+                    if(huexx_1==TRUE){
+                        midC13=message.value/96.0f;
+                    }
+                    if(huexx_2==TRUE){
+                        midC13=message.value/127.0f;
                     }
                 }
+
                 if(audioReactiveControlSwitch==3){
-                    midiLowActiveFloat[12]=0;
-                    midiMidActiveFloat[12]=0;
-                    if(abs(message.value/127.0f-highC13)<CONTROL_THRESHOLD){
-                        midiHighActiveFloat[12]=1;
+                    highC13=(message.value)/32.0f;
+
+                    if(huexx_0==TRUE){
+                        highC13=message.value/64.0f;
                     }
-                    if(midiHighActiveFloat[12]==1){
-                        highC13=(message.value)/32.0f;
-                        if(huexx_0==TRUE){
-                            highC13=message.value/64.0f;
-                        }
-                        if(huexx_1==TRUE){
-                            highC13=message.value/96.0f;
-                        }
-                        if(huexx_2==TRUE){
-                            highC13=message.value/127.0f;
-                        }
+
+                    if(huexx_1==TRUE){
+                        highC13=message.value/96.0f;
+                    }
+                    if(huexx_2==TRUE){
+                        highC13=message.value/127.0f;
                     }
                 }
             }
             if(message.control==125){
                 if(audioReactiveControlSwitch==0){
-                    midiLowActiveFloat[13]=0;
-                    midiMidActiveFloat[13]=0;
-                    midiHighActiveFloat[13]=0;
-                    if(p_lock_0_switch==1){
-                        vmidiActiveFloat[13]=0;
-                        if(abs((message.value-MIDI_MAGIC)/MIDI_MAGIC-p_lock[13][p_lock_increment])<CONTROL_THRESHOLD){
-                            midiActiveFloat[13]=1;
-                        }
-                        if(midiActiveFloat[13]==1){
-                            p_lock[13][p_lock_increment]=(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                            if(huexy_0==TRUE){
-                                p_lock[13][p_lock_increment]=2.0f*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                            }
-                            if(huexy_1==TRUE){
-                                p_lock[13][p_lock_increment]=4.0f*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                            }
-                            if(huexy_2==TRUE){
-                                p_lock[13][p_lock_increment]=8.0f*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                            }
-                        }
+                    p_lock[13][p_lock_increment]=(message.value-63.0)/63.0f;
+
+                    if(huexy_0==TRUE){
+                        p_lock[13][p_lock_increment]=2*(message.value-63.0)/63.0f;
                     }
-                    if(videoReactiveSwitch==1){
-                        midiActiveFloat[13]=0;
-                        if(abs((message.value-MIDI_MAGIC)/MIDI_MAGIC-vHuexOff)<CONTROL_THRESHOLD){
-                            vmidiActiveFloat[13]=1;
-                        }
-                        if(vmidiActiveFloat[13]==1){
-                            vHuexOff=(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                            if(huexy_0==TRUE){
-                                vHuexOff=2.0f*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                            }
-                            if(huexy_1==TRUE){
-                                vHuexOff=4.0f*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                            }
-                            if(huexy_2==TRUE){
-                                vHuexOff=8.0f*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                            }
-                        }
+
+                    if(huexy_1==TRUE){
+                        p_lock[13][p_lock_increment]=4*(message.value-63.0)/63.0f;
+                    }
+                    if(huexy_2==TRUE){
+                        p_lock[13][p_lock_increment]=8*(message.value-63.0)/63.0f;
                     }
                 }
-                if(audioReactiveControlSwitch!=0){
-                    midiActiveFloat[13]=0;
-                    vmidiActiveFloat[13]=0;
-                }
+
                 if(audioReactiveControlSwitch==1){
-                    midiMidActiveFloat[13]=0;
-                    midiHighActiveFloat[13]=0;
-                    if(abs((message.value-MIDI_MAGIC)/MIDI_MAGIC-lowC14)<CONTROL_THRESHOLD){
-                        midiLowActiveFloat[13]=1;
+                    lowC14=(message.value-63.0)/63.0f;
+
+                    if(huexy_0==TRUE){
+                        lowC14=2*(message.value-63.0)/63.0f;
                     }
-                    if(midiLowActiveFloat[13]==1){
-                        lowC14=(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        if(huexy_0==TRUE){
-                            lowC14=2.0f*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        }
-                        if(huexy_1==TRUE){
-                            lowC14=4.0f*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        }
-                        if(huexy_2==TRUE){
-                            lowC14=8.0f*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        }
+
+                    if(huexy_1==TRUE){
+                        lowC14=4*(message.value-63.0)/63.0f;
+                    }
+                    if(huexy_2==TRUE){
+                        lowC14=8*(message.value-63.0)/63.0f;
                     }
                 }
+
                 if(audioReactiveControlSwitch==2){
-                    midiLowActiveFloat[13]=0;
-                    midiHighActiveFloat[13]=0;
-                    if(abs((message.value-MIDI_MAGIC)/MIDI_MAGIC-midC14)<CONTROL_THRESHOLD){
-                        midiMidActiveFloat[13]=1;
+                    midC14=(message.value-63.0)/63.0f;
+
+                    if(huexy_0==TRUE){
+                        midC14=2*(message.value-63.0)/63.0f;
                     }
-                    if(midiMidActiveFloat[13]==1){
-                        midC14=(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        if(huexy_0==TRUE){
-                            midC14=2.0f*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        }
-                        if(huexy_1==TRUE){
-                            midC14=4.0f*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        }
-                        if(huexy_2==TRUE){
-                            midC14=8.0f*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        }
+
+                    if(huexy_1==TRUE){
+                        midC14=4*(message.value-63.0)/63.0f;
+                    }
+                    if(huexy_2==TRUE){
+                        midC14=8*(message.value-63.0)/63.0f;
                     }
                 }
+
                 if(audioReactiveControlSwitch==3){
-                    midiLowActiveFloat[13]=0;
-                    midiMidActiveFloat[13]=0;
-                    if(abs((message.value-MIDI_MAGIC)/MIDI_MAGIC-highC14)<CONTROL_THRESHOLD){
-                        midiHighActiveFloat[13]=1;
+                    highC14=(message.value-63.0)/63.0f;
+
+                    if(huexy_0==TRUE){
+                        highC14=2*(message.value-63.0)/63.0f;
                     }
-                    if(midiHighActiveFloat[13]==1){
-                        highC14=(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        if(huexy_0==TRUE){
-                            highC14=2.0f*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        }
-                        if(huexy_1==TRUE){
-                            highC14=4.0f*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        }
-                        if(huexy_2==TRUE){
-                            highC14=8.0f*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        }
+
+                    if(huexy_1==TRUE){
+                        highC14=4*(message.value-63.0)/63.0f;
+                    }
+                    if(huexy_2==TRUE){
+                        highC14=8*(message.value-63.0)/63.0f;
                     }
                 }
             }
             if(message.control==126){
                 if(audioReactiveControlSwitch==0){
-                    midiLowActiveFloat[14]=0;
-                    midiMidActiveFloat[14]=0;
-                    midiHighActiveFloat[14]=0;
-                    if(p_lock_0_switch==1){
-                        vmidiActiveFloat[14]=0;
-                        if(abs((message.value-MIDI_MAGIC)/MIDI_MAGIC-p_lock[14][p_lock_increment])<CONTROL_THRESHOLD){
-                            midiActiveFloat[14]=1;
-                        }
-                        if(midiActiveFloat[14]==1){
-                            p_lock[14][p_lock_increment]=(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                            if(huexz_0==TRUE){
-                                p_lock[14][p_lock_increment]=2.0f*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                            }
-                            if(huexz_1==TRUE){
-                                p_lock[14][p_lock_increment]=4.0f*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                            }
-                            if(huexz_2==TRUE){
-                                p_lock[14][p_lock_increment]=8.0f*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                            }
-                        }
+                    p_lock[14][p_lock_increment]=(message.value-63.0)/63.0f;
+
+                    if(huexz_0==TRUE){
+                        p_lock[14][p_lock_increment]=2*(message.value-63.0)/63.0f;
                     }
-                    if(videoReactiveSwitch==1){
-                        midiActiveFloat[14]=0;
-                        if(abs((message.value-MIDI_MAGIC)/MIDI_MAGIC-vHuexLfo)<CONTROL_THRESHOLD){
-                            vmidiActiveFloat[14]=1;
-                        }
-                        if(vmidiActiveFloat[14]==1){
-                            vHuexLfo=(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                            if(huexz_0==TRUE){
-                                vHuexLfo=2.0f*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                            }
-                            if(huexz_1==TRUE){
-                                vHuexLfo=4.0f*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                            }
-                            if(huexz_2==TRUE){
-                                vHuexLfo=8.0f*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                            }
-                        }
+
+                    if(huexz_1==TRUE){
+                        p_lock[14][p_lock_increment]=4*(message.value-63.0)/63.0f;
+                    }
+                    if(huexz_2==TRUE){
+                        p_lock[14][p_lock_increment]=8*(message.value-63.0)/63.0f;
                     }
                 }
-                if(audioReactiveControlSwitch!=0){
-                    midiActiveFloat[14]=0;
-                    vmidiActiveFloat[14]=0;
-                }
+
                 if(audioReactiveControlSwitch==1){
-                    midiMidActiveFloat[14]=0;
-                    midiHighActiveFloat[14]=0;
-                    if(abs((message.value-MIDI_MAGIC)/MIDI_MAGIC-lowC15)<CONTROL_THRESHOLD){
-                        midiLowActiveFloat[14]=1;
+                    lowC15=(message.value-63.0)/63.0f;
+
+                    if(huexz_0==TRUE){
+                        lowC15=2*(message.value-63.0)/63.0f;
                     }
-                    if(midiLowActiveFloat[14]==1){
-                        lowC15=(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        if(huexz_0==TRUE){
-                            lowC15=2.0f*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        }
-                        if(huexz_1==TRUE){
-                            lowC15=4.0f*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        }
-                        if(huexz_2==TRUE){
-                            lowC15=8.0f*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        }
+
+                    if(huexz_1==TRUE){
+                        lowC15=4*(message.value-63.0)/63.0f;
+                    }
+                    if(huexz_2==TRUE){
+                        lowC15=8*(message.value-63.0)/63.0f;
                     }
                 }
+
                 if(audioReactiveControlSwitch==2){
-                    midiLowActiveFloat[14]=0;
-                    midiHighActiveFloat[14]=0;
-                    if(abs((message.value-MIDI_MAGIC)/MIDI_MAGIC-midC15)<CONTROL_THRESHOLD){
-                        midiMidActiveFloat[14]=1;
+                    midC15=(message.value-63.0)/63.0f;
+
+                    if(huexz_0==TRUE){
+                        midC15=2*(message.value-63.0)/63.0f;
                     }
-                    if(midiMidActiveFloat[14]==1){
-                        midC15=(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        if(huexz_0==TRUE){
-                            midC15=2.0f*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        }
-                        if(huexz_1==TRUE){
-                            midC15=4.0f*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        }
-                        if(huexz_2==TRUE){
-                            midC15=8.0f*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        }
+
+                    if(huexz_1==TRUE){
+                        midC15=4*(message.value-63.0)/63.0f;
+                    }
+                    if(huexz_2==TRUE){
+                        midC15=8*(message.value-63.0)/63.0f;
                     }
                 }
+
                 if(audioReactiveControlSwitch==3){
-                    midiLowActiveFloat[14]=0;
-                    midiMidActiveFloat[14]=0;
-                    if(abs((message.value-MIDI_MAGIC)/MIDI_MAGIC-highC15)<CONTROL_THRESHOLD){
-                        midiHighActiveFloat[14]=1;
+                    highC15=(message.value-63.0)/63.0f;
+
+                    if(huexz_0==TRUE){
+                        highC15=2*(message.value-63.0)/63.0f;
                     }
-                    if(midiHighActiveFloat[14]==1){
-                        highC15=(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        if(huexz_0==TRUE){
-                            highC15=2.0f*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        }
-                        if(huexz_1==TRUE){
-                            highC15=4.0f*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        }
-                        if(huexz_2==TRUE){
-                            highC15=8.0f*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
-                        }
+
+                    if(huexz_1==TRUE){
+                        highC15=4*(message.value-63.0)/63.0f;
+                    }
+                    if(huexz_2==TRUE){
+                        highC15=8*(message.value-63.0)/63.0f;
                     }
                 }
             }
             if(message.control==127){
                 if(audioReactiveControlSwitch==0){
-                    midiLowActiveFloat[15]=0;
-                    midiMidActiveFloat[15]=0;
-                    midiHighActiveFloat[15]=0;
-                    if(p_lock_0_switch==1){
-                        if(abs(message.value/127.0f-p_lock[15][p_lock_increment])<CONTROL_THRESHOLD){
-                            midiActiveFloat[15]=1;
-                        }
-                        if(midiActiveFloat[15]==1){
-                            p_lock[15][p_lock_increment]=(message.value)/127.0;
-                        }
-                    }
+                    p_lock[15][p_lock_increment]=(message.value)/127.0;
                 }
-                if(audioReactiveControlSwitch!=0){
-                    midiActiveFloat[15]=0;
-                    vmidiActiveFloat[15]=0;
-                }
+
                 if(audioReactiveControlSwitch==1){
-                    midiMidActiveFloat[15]=0;
-                    midiHighActiveFloat[15]=0;
-                    if(abs(message.value/127.0f-lowC16)<CONTROL_THRESHOLD){
-                        midiLowActiveFloat[15]=1;
-                    }
-                    if(midiLowActiveFloat[15]==1){
-                        lowC16=message.value/127.0f;
-                    }
+                    lowC16=(message.value)/127.0;
                 }
+
                 if(audioReactiveControlSwitch==2){
-                    midiLowActiveFloat[15]=0;
-                    midiHighActiveFloat[15]=0;
-                    if(abs(message.value/127.0f-midC16)<CONTROL_THRESHOLD){
-                        midiMidActiveFloat[15]=1;
-                    }
-                    if(midiMidActiveFloat[15]==1){
-                        midC16=message.value/127.0f;
-                    }
+                    midC16=(message.value)/127.0;
                 }
+
                 if(audioReactiveControlSwitch==3){
-                    midiLowActiveFloat[15]=0;
-                    midiMidActiveFloat[15]=0;
-                    if(abs(message.value/127.0f-highC16)<CONTROL_THRESHOLD){
-                        midiHighActiveFloat[15]=1;
-                    }
-                    if(midiHighActiveFloat[15]==1){
-                        highC16=message.value/127.0f;
-                    }
+                    highC16=(message.value)/127.0;
                 }
             }
+
+
+
+
+            //gots to remap these to 60-61
+            //cc43 maps to brightInvert
             if(message.control==60){
                 if(message.value==127){
                     brightInvert=TRUE;
                 }
+
                 if(message.value==0){
                     brightInvert=FALSE;
                 }
             }
+
+            //cc44 maps to saturationInvert
             if(message.control==61){
                 if(message.value==127){
                     saturationInvert=TRUE;
                 }
+
                 if(message.value==0){
                     saturationInvert=FALSE;
                 }
             }
+
             if(message.control==62){
                 if(message.value==127){
-                    hueInvert=TRUE;
-                }
-                if(message.value==0){
-                    hueInvert=FALSE;
-                }
-            }
-            if(message.control==62){
-                if(message.value==127){
+                    //hueInvert=TRUE;
                     hdmi_aspect_ratio_switch=TRUE;
                 }
+
                 if(message.value==0){
+                    //hueInvert=FALSE;
                     hdmi_aspect_ratio_switch=FALSE;
                 }
             }
+
+
+            //cc41 maps to horizontalMirror
             if(message.control==41){
                 if(message.value==127){
                     horizontalMirror=TRUE;
                 }
+
                 if(message.value==0){
                     horizontalMirror=FALSE;
                 }
             }
+            //cc45 maps to horizontalMirror
             if(message.control==45){
                 if(message.value==127){
                     verticalMirror=TRUE;
                 }
+
                 if(message.value==0){
                     verticalMirror=FALSE;
                 }
             }
             if(message.control==59){
-                if(message.value==127){
-                    vLumakeyValue=0.0;
-                    vMix=0.0;
-                    vHue=0.0;
-                    vSaturation=0.0;
-                    vBright=0.0;
-                    vTemporalFilterMix=0.0;
-                    vTemporalFilterResonance=0.0;
-                    vSharpenAmount=0.0;
-                    vX=0.0;
-                    vY=0.0;
-                    vZ=0.0;
-                    vRotate=0.0;
-                    vHuexMod=0.0;
-                    vHuexOff=0.0;
-                    vHuexLfo=0.0;
-                    lowC1=lowC2=lowC3=lowC4=lowC5=lowC6=lowC7=lowC8=lowC9=lowC10=lowC11=lowC12=lowC13=lowC14=lowC15=lowC16=0.0f;
-                    midC1=midC2=midC3=midC4=midC5=midC6=midC7=midC8=midC9=midC10=midC11=midC12=midC13=midC14=midC15=midC16=0.0f;
-                    highC1=highC2=highC3=highC4=highC5=highC6=highC7=highC8=highC9=highC10=highC11=highC12=highC13=highC14=highC15=highC16=0.0f;
-                    for(int i=0;i<p_lock_number;i++){
-                        midiActiveFloat[i]=0;
-                        vmidiActiveFloat[i]=0;
-                        midiLowActiveFloat[i]=0;
-                        midiMidActiveFloat[i]=0;
-                        midiHighActiveFloat[i]=0;
-                        for(int j=0;j<p_lock_size;j++){
-                            p_lock[i][j]=0;
-                        }
-                    }
-                }
-            }
-            if(message.control==58){
-                if(message.value==127){
-                    if(clear_switch==0){
-                        clear_switch=1;
-                        //clear the framebuffer if thats whats up
-                        framebuffer0.begin();
-                        ofClear(0, 0, 0, 255);
-                        framebuffer0.end();
-                        for(int i=0;i<framebufferLength;i++){
-                            pastFrames[i].begin();
-                            ofClear(0,0,0,255);
-                            pastFrames[i].end();
-                        }
-                    }
-                }
-            }
-            if(message.control!=58){
-                clear_switch=0;
-            }
-        }
-    }
-}
 
-//-----------------------------------------------------------
-void ofApp::midibizOld(){
-    for(unsigned int i = 0; i < midiMessages.size(); ++i) {
-        
-        ofxMidiMessage &message = midiMessages[i];
-        
-        if(message.status < MIDI_SYSEX) {
-            //text << "chan: " << message.channel;
-            if(message.status == MIDI_CONTROL_CHANGE) {
-                
-                //How to Midi Map
-                //uncomment the line that says cout<<message control etc
-                //run the code and look down in the console
-                //when u move a knob on yr controller keep track of the number that shows up
-                //that is the cc value of the knob
-                //then go down to the part labled 'MIDIMAPZONE'
-                //and change the numbers for each if message.control== statement to the values
-                //on yr controller
-                
-                // cout << "message.control"<< message.control<< endl;
-                // cout << "message.value"<< message.value<< endl;
-                
-                
-                
-                //MIDIMAPZONE
-                //these are mostly all set to output bipolor controls at this moment (ranging from -1.0 to 1.0)
-                //if u uncomment the second line on each of these if statements that will switch thems to unipolor
-                //controls (ranging from 0.0to 1.0) if  you prefer
-                
-                if(message.control==39){
-                    if(message.value==127){
-                        p_lock_0_switch=0;
-                    }
-                    if(message.value==0){
-                        p_lock_0_switch=1;
-                    }
-                }
-                if(message.control==55){
-                    if(message.value==127){
-                        p_lock_switch=1;
-                    }
-                    if(message.value==0){
-                        p_lock_switch=0;
-                    }
-                }
-                if(message.control==58){
-                    if(message.value==127){
-                        for(int i=0;i<p_lock_number;i++){
-                            for(int j=0;j<p_lock_size;j++){
-                                p_lock[i][j]=0;
-                            }
-                        }
-                    }
-                }
-                if(message.control==32){
-                    if(message.value==127){
-                        x_2=TRUE;
-                    }
-                    if(message.value==0){
-                        x_2=FALSE;
-                    }
-                }
-                if(message.control==48){
-                    if(message.value==127){
-                        x_5=TRUE;
-                    }
-                    if(message.value==0){
-                        x_5=FALSE;
-                    }
-                }
-                if(message.control==64){
-                    if(message.value==127){
-                        x_10=TRUE;
-                    }
-                    
-                    if(message.value==0){
-                        x_10=FALSE;
-                    }
-                }
-                
-                
-                
-                if(message.control==33){
-                    if(message.value==127){
-                        y_2=TRUE;
-                    }
-                    
-                    if(message.value==0){
-                        y_2=FALSE;
-                    }
-                }
-                
-                if(message.control==49){
-                    if(message.value==127){
-                        y_5=TRUE;
-                    }
-                    
-                    if(message.value==0){
-                        y_5=FALSE;
-                    }
-                }
-                
-                if(message.control==65){
-                    if(message.value==127){
-                        y_10=TRUE;
-                    }
-                    
-                    if(message.value==0){
-                        y_10=FALSE;
-                    }
-                }
-                
-                
-                
-                if(message.control==34){
-                    if(message.value==127){
-                        z_2=TRUE;
-                    }
-                    
-                    if(message.value==0){
-                        z_2=FALSE;
-                    }
-                }
-                
-                if(message.control==50){
-                    if(message.value==127){
-                        z_5=TRUE;
-                    }
-                    
-                    if(message.value==0){
-                        z_5=FALSE;
-                    }
-                }
-                
-                if(message.control==66){
-                    if(message.value==127){
-                        z_10=TRUE;
-                    }
-                    
-                    if(message.value==0){
-                        z_10=FALSE;
-                    }
-                }
-                
-                
-                
-                
-                if(message.control==35){
-                    if(message.value==127){
-                        r_2=TRUE;
-                    }
-                    
-                    if(message.value==0){
-                        r_2=FALSE;
-                    }
-                }
-                
-                if(message.control==51){
-                    if(message.value==127){
-                        r_5=TRUE;
-                    }
-                    
-                    if(message.value==0){
-                        r_5=FALSE;
-                    }
-                }
-                
-                if(message.control==67){
-                    if(message.value==127){
-                        r_10=TRUE;
-                    }
-                    
-                    if(message.value==0){
-                        r_10=FALSE;
-                    }
-                }
-                
-                
-                
-                
-                if(message.control==36){
-                    if(message.value==127){
-                        huexx_0=TRUE;
-                    }
-                    
-                    if(message.value==0){
-                        huexx_0=FALSE;
-                    }
-                }
-                
-                if(message.control==52){
-                    if(message.value==127){
-                        huexx_1=TRUE;
-                    }
-                    
-                    if(message.value==0){
-                        huexx_1=FALSE;
-                    }
-                }
-                
-                if(message.control==68){
-                    if(message.value==127){
-                        huexx_2=TRUE;
-                    }
-                    
-                    if(message.value==0){
-                        huexx_2=FALSE;
-                    }
-                }
-                
-                if(message.control==46){
-                    if(message.value==127){
-                        toroidSwitch=TRUE;
-                    }
-                    
-                    if(message.value==0){
-                        toroidSwitch=FALSE;
-                    }
-                }
-                
-                
-                
-                
-                if(y_skew_switch==TRUE){
-                    y_skew+=.00001;
-                }
-                
-                if(x_skew_switch==TRUE){
-                    x_skew+=.00001;
-                }
-                
-                
-                if(message.control==71){
-                    if(message.value==127){
-                        wet_dry_switch=FALSE;
-                    }
-                    
-                    if(message.value==0){
-                        wet_dry_switch=TRUE;
-                    }
-                    
-                }
-                
-                //---------------------
-                
-                
-                
-                if(message.control==37){
-                    if(message.value==127){
-                        huexy_0=TRUE;
-                    }
-                    
-                    if(message.value==0){
-                        huexy_0=FALSE;
-                    }
-                }
-                
-                if(message.control==53){
-                    if(message.value==127){
-                        huexy_1=TRUE;
-                    }
-                    
-                    if(message.value==0){
-                        huexy_1=FALSE;
-                    }
-                }
-                
-                if(message.control==69){
-                    if(message.value==127){
-                        huexy_2=TRUE;
-                    }
-                    
-                    if(message.value==0){
-                        huexy_2=FALSE;
-                    }
-                }
-                
-                
-                //---------------------
-                
-                
-                
-                if(message.control==38){
-                    if(message.value==127){
-                        huexz_0=TRUE;
-                    }
-                    
-                    if(message.value==0){
-                        huexz_0=FALSE;
-                    }
-                }
-                
-                if(message.control==54){
-                    if(message.value==127){
-                        huexz_1=TRUE;
-                    }
-                    
-                    if(message.value==0){
-                        huexz_1=FALSE;
-                    }
-                }
-                
-                if(message.control==70){
-                    if(message.value==127){
-                        huexz_2=TRUE;
-                    }
-                    
-                    if(message.value==0){
-                        huexz_2=FALSE;
-                    }
-                }
-                if(message.control==43){
-                    if(message.value==127){
-                        audioReactiveControlSwitch=1;
-                    }
-                    
-                    if(message.value==0){
-                        audioReactiveControlSwitch=0;
-                    }
-                    
-                }
-                
-                if(message.control==44){
-                    if(message.value==127){
-                        audioReactiveControlSwitch=2;
-                    }
-                    
-                    if(message.value==0){
-                        audioReactiveControlSwitch=0;
-                    }
-                    
-                }
-                
-                if(message.control==42){
-                    if(message.value==127){
-                        audioReactiveControlSwitch=3;
-                    }
-                    
-                    if(message.value==0){
-                        audioReactiveControlSwitch=0;
-                    }
-                    
-                }
-                //nanokontrol2 controls
-                //c1 maps to fb0 lumakey
-                if(message.control==16){
-                    
-                    if(audioReactiveControlSwitch==0){
-                        if(p_lock_0_switch==1){
-                            p_lock[0][p_lock_increment]=message.value/127.0f;
-                        }
-                    }
-                    
-                    if(audioReactiveControlSwitch==1){
-                        lowC1=message.value/127.0f;
-                    }
-                    
-                    if(audioReactiveControlSwitch==2){
-                        midC1=message.value/127.0f;
-                    }
-                    
-                    if(audioReactiveControlSwitch==3){
-                        highC1=message.value/127.0f;
-                    }
-                }
-                
-                if(message.control==17){
-                    
-                    if(audioReactiveControlSwitch==0){
-                        if(p_lock_0_switch==1){
-                            p_lock[1][p_lock_increment]=(message.value-63)/63.0f;
-                        }
-                    }
-                    
-                    if(audioReactiveControlSwitch==1){
-                        lowC2=(message.value-63.0f)/63.0f;
-                    }
-                    
-                    if(audioReactiveControlSwitch==2){
-                        midC2=(message.value-63.0f)/63.0f;
-                    }
-                    
-                    if(audioReactiveControlSwitch==3){
-                        highC2=(message.value-63.0f)/63.0f;
-                    }
-                }
-                
-                //c3 maps to fb0 huex
-                if(message.control==18){
-                    if(audioReactiveControlSwitch==0){
-                        if(p_lock_0_switch==1){
-                            p_lock[2][p_lock_increment]=(message.value-63)/63.0f;
-                        }
-                    }
-                    if(audioReactiveControlSwitch==1){
-                        lowC3=(message.value-63.0f)/63.0f;
-                    }
-                    
-                    if(audioReactiveControlSwitch==2){
-                        midC3=(message.value-63.0f)/63.0f;
-                    }
-                    
-                    if(audioReactiveControlSwitch==3){
-                        highC3=(message.value-63.0f)/63.0f;
-                    }
-                    
-                }
-                
-                //c4 maps to fb0 satx
-                if(message.control==19){
-                    if(audioReactiveControlSwitch==0){
-                        if(p_lock_0_switch==1){
-                            p_lock[3][p_lock_increment]=(message.value-63)/63.0f;
-                        }
-                    }
-                    if(audioReactiveControlSwitch==1){
-                        lowC4=(message.value-63.0f)/63.0f;
-                    }
-                    
-                    if(audioReactiveControlSwitch==2){
-                        midC4=(message.value-63.0f)/63.0f;
-                    }
-                    
-                    if(audioReactiveControlSwitch==3){
-                        highC4=(message.value-63.0f)/63.0f;
-                    }
-                }
-                
-                //c5 maps to fb0 brightx
-                if(message.control==20){
-                    if(audioReactiveControlSwitch==0){
-                        if(p_lock_0_switch==1){
-                            p_lock[4][p_lock_increment]=(message.value-63)/63.0f;
-                        }
-                    }
-                    if(audioReactiveControlSwitch==1){
-                        lowC5=(message.value-63.0f)/63.0f;
-                    }
-                    
-                    if(audioReactiveControlSwitch==2){
-                        midC5=(message.value-63.0f)/63.0f;
-                    }
-                    
-                    if(audioReactiveControlSwitch==3){
-                        highC5=(message.value-63.0f)/63.0f;
-                    }
-                    
-                }
-                
-                //c6 maps to temporal filter
-                if(message.control==21){
-                    if(audioReactiveControlSwitch==0){
-                        if(p_lock_0_switch==1){
-                            p_lock[5][p_lock_increment]=(message.value-63)/63.0f;
-                        }
-                    }
-                    if(audioReactiveControlSwitch==1){
-                        lowC6=(message.value-63.0f)/63.0f;
-                    }
-                    
-                    if(audioReactiveControlSwitch==2){
-                        midC6=(message.value-63.0f)/63.0f;
-                    }
-                    
-                    if(audioReactiveControlSwitch==3){
-                        highC6=(message.value-63.0f)/63.0f;
-                    }
-                }
-                
-                //c7 maps to temporal filter resonance
-                if(message.control==22){
-                    if(audioReactiveControlSwitch==0){
-                        if(p_lock_0_switch==1){
-                            p_lock[6][p_lock_increment]=(message.value)/127.0f;
-                        }
-                    }
-                    if(audioReactiveControlSwitch==1){
-                        lowC7=(message.value)/127.0f;
-                    }
-                    
-                    if(audioReactiveControlSwitch==2){
-                        midC7=(message.value)/127.0f;
-                    }
-                    
-                    if(audioReactiveControlSwitch==3){
-                        highC7=(message.value)/127.0f;
-                    }
-                }
-                
-                //c8 maps to brightx
-                if(message.control==23){
-                    if(audioReactiveControlSwitch==0){
-                        if(p_lock_0_switch==1){
-                            p_lock[7][p_lock_increment]=(message.value)/127.0f;
-                        }
-                    }
-                    if(audioReactiveControlSwitch==1){
-                        lowC8=(message.value)/127.0f;
-                    }
-                    
-                    if(audioReactiveControlSwitch==2){
-                        midC8=(message.value)/127.0f;
-                    }
-                    
-                    if(audioReactiveControlSwitch==3){
-                        highC8=(message.value)/127.0f;
-                    }
-                    
-                }
-                
-                //c9 maps to fb0 x displace
-                if(message.control==120){
-                    if(audioReactiveControlSwitch==0){
-                        p_lock[8][p_lock_increment]=(message.value-63)/63.0f;
-                        
-                        if(x_2==TRUE){
-                            p_lock[8][p_lock_increment]=2.0*(message.value-63.0)/63.0f;
-                        }
-                        
-                        if(x_5==TRUE){
-                            p_lock[8][p_lock_increment]=5.0*(message.value-63.0)/63.0f;
-                        }
-                        if(x_10==TRUE){
-                            p_lock[8][p_lock_increment]=10.0*(message.value-63.0)/63.0f;
-                        }
-                    }
-                    
-                    if(audioReactiveControlSwitch==1){
-                        lowC9=(message.value-63)/63.0f;
-                        
-                        if(x_2==TRUE){
-                            lowC9=2.0*(message.value-63.0)/63.0f;
-                        }
-                        
-                        if(x_5==TRUE){
-                            lowC9=5.0*(message.value-63.0)/63.0f;
-                        }
-                        if(x_10==TRUE){
-                            lowC9=10.0*(message.value-63.0)/63.0f;
-                        }
-                    }
-                    
-                    if(audioReactiveControlSwitch==2){
-                        midC9=(message.value-63)/63.0f;
-                        
-                        if(x_2==TRUE){
-                            midC9=2.0*(message.value-63.0)/63.0f;
-                        }
-                        
-                        if(x_5==TRUE){
-                            midC9=5.0*(message.value-63.0)/63.0f;
-                        }
-                        if(x_10==TRUE){
-                            midC9=10.0*(message.value-63.0)/63.0f;
-                        }
-                    }
-                    
-                    if(audioReactiveControlSwitch==3){
-                        highC9=(message.value-63)/63.0f;
-                        
-                        if(x_2==TRUE){
-                            highC9=2.0*(message.value-63.0)/63.0f;
-                        }
-                        
-                        if(x_5==TRUE){
-                            highC9=5.0*(message.value-63.0)/63.0f;
-                        }
-                        if(x_10==TRUE){
-                            highC9=10.0*(message.value-63.0)/63.0f;
-                        }
-                    }
-                    
-                }
-                
-                //c10 maps to fb0 y displace
-                if(message.control==121){
-                    if(audioReactiveControlSwitch==0){
-                        p_lock[9][p_lock_increment]=(message.value-63)/63.0f;
-                        
-                        if(y_2==TRUE){
-                            p_lock[9][p_lock_increment]=2.0*(message.value-63.0)/63.0f;
-                        }
-                        
-                        if(y_5==TRUE){
-                            p_lock[9][p_lock_increment]=5.0*(message.value-63.0)/63.0f;
-                        }
-                        if(y_10==TRUE){
-                            p_lock[9][p_lock_increment]=10.0*(message.value-63.0)/63.0f;
-                        }
-                    }
-                    
-                    if(audioReactiveControlSwitch==1){
-                        lowC10=(message.value-63)/63.0f;
-                        
-                        if(y_2==TRUE){
-                            lowC10=2.0*(message.value-63.0)/63.0f;
-                        }
-                        
-                        if(y_5==TRUE){
-                            lowC10=5.0*(message.value-63.0)/63.0f;
-                        }
-                        if(y_10==TRUE){
-                            lowC10=10.0*(message.value-63.0)/63.0f;
-                        }
-                    }
-                    
-                    if(audioReactiveControlSwitch==2){
-                        midC10=(message.value-63)/63.0f;
-                        
-                        if(y_2==TRUE){
-                            midC10=2.0*(message.value-63.0)/63.0f;
-                        }
-                        
-                        if(y_5==TRUE){
-                            midC10=5.0*(message.value-63.0)/63.0f;
-                        }
-                        if(y_10==TRUE){
-                            midC10=10.0*(message.value-63.0)/63.0f;
-                        }
-                    }
-                    
-                    if(audioReactiveControlSwitch==3){
-                        highC10=(message.value-63)/63.0f;
-                        
-                        if(y_2==TRUE){
-                            highC10=2.0*(message.value-63.0)/63.0f;
-                        }
-                        
-                        if(y_5==TRUE){
-                            highC10=5.0*(message.value-63.0)/63.0f;
-                        }
-                        if(y_10==TRUE){
-                            highC10=10.0*(message.value-63.0)/63.0f;
-                        }
-                    }
-                    
-                    
-                    
-                }
-                
-                
-                if(message.control==122){
-                    if(audioReactiveControlSwitch==0){
-                        p_lock[10][p_lock_increment]=(message.value-63.0)/63.0f;
-                        
-                        if(z_2==TRUE){
-                            p_lock[10][p_lock_increment]=2.0*(message.value-63.0)/63.0f;
-                        }
-                        
-                        if(z_5==TRUE){
-                            p_lock[10][p_lock_increment]=5.0*(message.value-63.0)/63.0f;
-                        }
-                        if(z_10==TRUE){
-                            p_lock[10][p_lock_increment]=10.0*(message.value-63.0)/63.0f;
-                        }
-                    }
-                    
-                    if(audioReactiveControlSwitch==1){
-                        lowC11=(message.value-63.0)/63.0f;
-                        
-                        if(z_2==TRUE){
-                            lowC11=2.0*(message.value-63.0)/63.0f;
-                        }
-                        
-                        if(z_5==TRUE){
-                            lowC11=5.0*(message.value-63.0)/63.0f;
-                        }
-                        if(z_10==TRUE){
-                            lowC11=10.0*(message.value-63.0)/63.0f;
-                        }
-                    }
-                    
-                    if(audioReactiveControlSwitch==2){
-                        midC11=(message.value-63.0)/63.0f;
-                        
-                        if(z_2==TRUE){
-                            midC11=2.0*(message.value-63.0)/63.0f;
-                        }
-                        
-                        if(z_5==TRUE){
-                            midC11=5.0*(message.value-63.0)/63.0f;
-                        }
-                        if(z_10==TRUE){
-                            midC11=10.0*(message.value-63.0)/63.0f;
-                        }
-                    }
-                    
-                    if(audioReactiveControlSwitch==3){
-                        highC11=(message.value-63.0)/63.0f;
-                        
-                        if(z_2==TRUE){
-                            highC11=2.0*(message.value-63.0)/63.0f;
-                        }
-                        
-                        if(z_5==TRUE){
-                            highC11=5.0*(message.value-63.0)/63.0f;
-                        }
-                        if(z_10==TRUE){
-                            highC11=10.0*(message.value-63.0)/63.0f;
-                        }
-                    }
-                    
-                }
-                
-                if(message.control==123){
-                    if(audioReactiveControlSwitch==0){
-                        p_lock[11][p_lock_increment]=(message.value-63)/63.0f;
-                        
-                        if(r_2==TRUE){
-                            p_lock[11][p_lock_increment]=2*(message.value-63.0)/63.0f;
-                        }
-                        
-                        if(r_5==TRUE){
-                            p_lock[11][p_lock_increment]=4*(message.value-63.0)/63.0f;
-                        }
-                        if(r_10==TRUE){
-                            p_lock[11][p_lock_increment]=8*(message.value-63.0)/63.0f;
-                        }
-                    }
-                    
-                    if(audioReactiveControlSwitch==1){
-                        lowC12=(message.value-63)/63.0f;
-                        
-                        if(r_2==TRUE){
-                            lowC12=2*(message.value-63.0)/63.0f;
-                        }
-                        
-                        if(r_5==TRUE){
-                            lowC12=4*(message.value-63.0)/63.0f;
-                        }
-                        if(r_10==TRUE){
-                            lowC12=8*(message.value-63.0)/63.0f;
-                        }
-                    }
-                    
-                    if(audioReactiveControlSwitch==2){
-                        midC12=(message.value-63)/63.0f;
-                        
-                        if(r_2==TRUE){
-                            midC12=2*(message.value-63.0)/63.0f;
-                        }
-                        
-                        if(r_5==TRUE){
-                            midC12=4*(message.value-63.0)/63.0f;
-                        }
-                        if(r_10==TRUE){
-                            midC12=8*(message.value-63.0)/63.0f;
-                        }
-                    }
-                    
-                    if(audioReactiveControlSwitch==3){
-                        highC12=(message.value-63)/63.0f;
-                        
-                        if(r_2==TRUE){
-                            highC12=2*(message.value-63.0)/63.0f;
-                        }
-                        
-                        if(r_5==TRUE){
-                            highC12=4*(message.value-63.0)/63.0f;
-                        }
-                        if(r_10==TRUE){
-                            highC12=8*(message.value-63.0)/63.0f;
-                        }
-                    }
-                    
-                    
-                }
-                
-                
-                if(message.control==124){
-                    if(audioReactiveControlSwitch==0){
-                        p_lock[12][p_lock_increment]=(message.value)/32.0f;
-                        
-                        if(huexx_0==TRUE){
-                            p_lock[12][p_lock_increment]=message.value/64.0f;
-                        }
-                        
-                        if(huexx_1==TRUE){
-                            p_lock[12][p_lock_increment]=message.value/96.0f;
-                        }
-                        if(huexx_2==TRUE){
-                            p_lock[12][p_lock_increment]=message.value/127.0f;
-                        }
-                    }
-                    
-                    if(audioReactiveControlSwitch==1){
-                        lowC13=(message.value)/32.0f;
-                        
-                        if(huexx_0==TRUE){
-                            lowC13=message.value/64.0f;
-                        }
-                        
-                        if(huexx_1==TRUE){
-                            lowC13=message.value/96.0f;
-                        }
-                        if(huexx_2==TRUE){
-                            lowC13=message.value/127.0f;
-                        }
-                    }
-                    
-                    if(audioReactiveControlSwitch==2){
-                        midC13=(message.value)/32.0f;
-                        
-                        if(huexx_0==TRUE){
-                            midC13=message.value/64.0f;
-                        }
-                        
-                        if(huexx_1==TRUE){
-                            midC13=message.value/96.0f;
-                        }
-                        if(huexx_2==TRUE){
-                            midC13=message.value/127.0f;
-                        }
-                    }
-                    
-                    if(audioReactiveControlSwitch==3){
-                        highC13=(message.value)/32.0f;
-                        
-                        if(huexx_0==TRUE){
-                            highC13=message.value/64.0f;
-                        }
-                        
-                        if(huexx_1==TRUE){
-                            highC13=message.value/96.0f;
-                        }
-                        if(huexx_2==TRUE){
-                            highC13=message.value/127.0f;
-                        }
-                    }
-                }
-                if(message.control==125){
-                    if(audioReactiveControlSwitch==0){
-                        p_lock[13][p_lock_increment]=(message.value-63.0)/63.0f;
-                        
-                        if(huexy_0==TRUE){
-                            p_lock[13][p_lock_increment]=2*(message.value-63.0)/63.0f;
-                        }
-                        
-                        if(huexy_1==TRUE){
-                            p_lock[13][p_lock_increment]=4*(message.value-63.0)/63.0f;
-                        }
-                        if(huexy_2==TRUE){
-                            p_lock[13][p_lock_increment]=8*(message.value-63.0)/63.0f;
-                        }
-                    }
-                    
-                    if(audioReactiveControlSwitch==1){
-                        lowC14=(message.value-63.0)/63.0f;
-                        
-                        if(huexy_0==TRUE){
-                            lowC14=2*(message.value-63.0)/63.0f;
-                        }
-                        
-                        if(huexy_1==TRUE){
-                            lowC14=4*(message.value-63.0)/63.0f;
-                        }
-                        if(huexy_2==TRUE){
-                            lowC14=8*(message.value-63.0)/63.0f;
-                        }
-                    }
-                    
-                    if(audioReactiveControlSwitch==2){
-                        midC14=(message.value-63.0)/63.0f;
-                        
-                        if(huexy_0==TRUE){
-                            midC14=2*(message.value-63.0)/63.0f;
-                        }
-                        
-                        if(huexy_1==TRUE){
-                            midC14=4*(message.value-63.0)/63.0f;
-                        }
-                        if(huexy_2==TRUE){
-                            midC14=8*(message.value-63.0)/63.0f;
-                        }
-                    }
-                    
-                    if(audioReactiveControlSwitch==3){
-                        highC14=(message.value-63.0)/63.0f;
-                        
-                        if(huexy_0==TRUE){
-                            highC14=2*(message.value-63.0)/63.0f;
-                        }
-                        
-                        if(huexy_1==TRUE){
-                            highC14=4*(message.value-63.0)/63.0f;
-                        }
-                        if(huexy_2==TRUE){
-                            highC14=8*(message.value-63.0)/63.0f;
-                        }
-                    }
-                    
-                    
-                }
-                
-                
-                if(message.control==126){
-                    if(audioReactiveControlSwitch==0){
-                        p_lock[14][p_lock_increment]=(message.value-63.0)/63.0f;
-                        
-                        if(huexz_0==TRUE){
-                            p_lock[14][p_lock_increment]=2*(message.value-63.0)/63.0f;
-                        }
-                        
-                        if(huexz_1==TRUE){
-                            p_lock[14][p_lock_increment]=4*(message.value-63.0)/63.0f;
-                        }
-                        if(huexz_2==TRUE){
-                            p_lock[14][p_lock_increment]=8*(message.value-63.0)/63.0f;
-                        }
-                    }
-                    
-                    if(audioReactiveControlSwitch==1){
-                        lowC15=(message.value-63.0)/63.0f;
-                        
-                        if(huexz_0==TRUE){
-                            lowC15=2*(message.value-63.0)/63.0f;
-                        }
-                        
-                        if(huexz_1==TRUE){
-                            lowC15=4*(message.value-63.0)/63.0f;
-                        }
-                        if(huexz_2==TRUE){
-                            lowC15=8*(message.value-63.0)/63.0f;
-                        }
-                    }
-                    
-                    if(audioReactiveControlSwitch==2){
-                        midC15=(message.value-63.0)/63.0f;
-                        
-                        if(huexz_0==TRUE){
-                            midC15=2*(message.value-63.0)/63.0f;
-                        }
-                        
-                        if(huexz_1==TRUE){
-                            midC15=4*(message.value-63.0)/63.0f;
-                        }
-                        if(huexz_2==TRUE){
-                            midC15=8*(message.value-63.0)/63.0f;
-                        }
-                    }
-                    
-                    if(audioReactiveControlSwitch==3){
-                        highC15=(message.value-63.0)/63.0f;
-                        
-                        if(huexz_0==TRUE){
-                            highC15=2*(message.value-63.0)/63.0f;
-                        }
-                        
-                        if(huexz_1==TRUE){
-                            highC15=4*(message.value-63.0)/63.0f;
-                        }
-                        if(huexz_2==TRUE){
-                            highC15=8*(message.value-63.0)/63.0f;
-                        }
-                    }
-                    
-                    
-                }
-                
-                
-                if(message.control==127){
-                    if(audioReactiveControlSwitch==0){
-                        p_lock[15][p_lock_increment]=(message.value)/127.0;
-                    }
-                    
-                    if(audioReactiveControlSwitch==1){
-                        lowC16=(message.value)/127.0;
-                    }
-                    
-                    if(audioReactiveControlSwitch==2){
-                        midC16=(message.value)/127.0;
-                    }
-                    
-                    if(audioReactiveControlSwitch==3){
-                        highC16=(message.value)/127.0;
-                    }
-                }
-                
-                
-                
-                
-                //gots to remap these to 60-61
-                //cc43 maps to brightInvert
-                if(message.control==60){
-                    if(message.value==127){
-                        brightInvert=TRUE;
-                    }
-                    
-                    if(message.value==0){
-                        brightInvert=FALSE;
-                    }
-                }
-                
-                //cc44 maps to saturationInvert
-                if(message.control==61){
-                    if(message.value==127){
-                        saturationInvert=TRUE;
-                    }
-                    
-                    if(message.value==0){
-                        saturationInvert=FALSE;
-                    }
-                }
-                
-                if(message.control==62){
-                    if(message.value==127){
-                        //hueInvert=TRUE;
-                        hdmi_aspect_ratio_switch=TRUE;
-                    }
-                    
-                    if(message.value==0){
-                        //hueInvert=FALSE;
-                        hdmi_aspect_ratio_switch=FALSE;
-                    }
-                }
-                
-                
-                //cc41 maps to horizontalMirror
-                if(message.control==41){
-                    if(message.value==127){
-                        horizontalMirror=TRUE;
-                    }
-                    
-                    if(message.value==0){
-                        horizontalMirror=FALSE;
-                    }
-                }
-                //cc45 maps to horizontalMirror
-                if(message.control==45){
-                    if(message.value==127){
-                        verticalMirror=TRUE;
-                    }
-                    
-                    if(message.value==0){
-                        verticalMirror=FALSE;
-                    }
-                }
-                if(message.control==59){
-                    
-                    x_skew=y_skew=0.0;
-                    lowC1=lowC2=lowC3=lowC4=lowC5=lowC6=lowC7=lowC8=lowC9=lowC10=lowC11=lowC12=lowC13=lowC14=lowC15=lowC16=0.0f;
-                    midC1=midC2=midC3=midC4=midC5=midC6=midC7=midC8=midC9=midC10=midC11=midC12=midC13=midC14=midC15=midC16=0.0f;
-                    highC1=highC2=highC3=highC4=highC5=highC6=highC7=highC8=highC9=highC10=highC11=highC12=highC13=highC14=highC15=highC16=0.0f;
-                }
+                x_skew=y_skew=0.0;
+                lowC1=lowC2=lowC3=lowC4=lowC5=lowC6=lowC7=lowC8=lowC9=lowC10=lowC11=lowC12=lowC13=lowC14=lowC15=lowC16=0.0f;
+                midC1=midC2=midC3=midC4=midC5=midC6=midC7=midC8=midC9=midC10=midC11=midC12=midC13=midC14=midC15=midC16=0.0f;
+                highC1=highC2=highC3=highC4=highC5=highC6=highC7=highC8=highC9=highC10=highC11=highC12=highC13=highC14=highC15=highC16=0.0f;
             }
         }
     }
