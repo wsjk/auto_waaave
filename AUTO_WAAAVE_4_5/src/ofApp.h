@@ -14,6 +14,10 @@
 #include "ofxMidi.h"
 //#include "ofxOMXVideoGrabber.h"
 #include "ofxProcessFFT.h"
+#include <map>
+#include "ofxJSON.h" // Add this for JSON parsing
+#include <unordered_map>
+#include <string>
 
 class ofApp : public ofBaseApp, public ofxMidiListener {
 	
@@ -60,4 +64,38 @@ public:
     
     void parametersAssign();
     void midiLatchClear();
+
+	// MIDI mapping support
+	void loadMidiMapping();
+	void reloadMidiMappingIfChanged();
+	std::string midiMappingPath = "midi-mapping.json";
+	ofxJSONElement midiMappingJson;
+	uint64_t midiMappingTimestamp = 0;
+
+	struct MidiAction {
+		std::string type; // "toggle", "set", "value", etc.
+		std::string target; // variable name or action
+		float scale = 1.0f;
+		float offset = 0.0f;
+		bool bipolar = false;
+	};
+
+	std::map<int, MidiAction> midiCCMap;
+	std::map<int, MidiAction> midiButtonMap;
+	uint64_t nextMidiMappingCheckMillis = 0;
+
+	// Key mapping support
+	void loadKeyMapping();
+	void reloadKeyMappingIfChanged();
+	std::string keyMappingPath = "key-mapping.json";
+	ofxJSONElement keyMappingJson;
+	uint64_t keyMappingTimestamp = 0;
+
+	struct KeyAction {
+		std::string type;   // "action"
+		std::string target; // action name
+	};
+
+	std::unordered_map<int, KeyAction> keyActionMap;
+	uint64_t nextKeyMappingCheckMillis = 0;
 };

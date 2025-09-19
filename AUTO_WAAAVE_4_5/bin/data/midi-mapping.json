@@ -1,0 +1,24 @@
+{
+  "cc": [
+    { "cc": 16, "type": "value", "target": "vLumakeyValue", "bipolar": false },
+    { "cc": 17, "type": "value", "target": "vMix", "bipolar": true },
+    { "cc": 18, "type": "value", "target": "vHue", "bipolar": true },
+    { "cc": 19, "type": "value", "target": "vSaturation", "bipolar": true },
+    { "cc": 20, "type": "value", "target": "vBright", "bipolar": true }
+    // Add more CC mappings as needed
+  ],
+  "button": [
+    { "cc": 39, "type": "toggle", "target": "videoReactiveSwitch" },
+    { "cc": 55, "type": "toggle", "target": "p_lock_switch" },
+    { "cc": 58, "type": "toggle", "target": "clear" },
+    { "cc": 59, "type": "toggle", "target": "reset" },
+    { "cc": 71, "type": "toggle", "target": "wet_dry_switch" },
+    { "cc": 60, "type": "toggle", "target": "brightInvert" },
+    { "cc": 61, "type": "toggle", "target": "saturationInvert" },
+    { "cc": 62, "type": "toggle", "target": "hueInvert" },
+    { "cc": 41, "type": "toggle", "target": "horizontalMirror" },
+    { "cc": 45, "type": "toggle", "target": "verticalMirror" }
+    // Add more button mappings as needed
+  ]
+}
+
