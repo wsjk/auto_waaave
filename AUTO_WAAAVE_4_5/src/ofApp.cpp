@@ -1878,7 +1878,7 @@ void ofApp::midibiz(){
                             midiHighActiveFloat[9]=1;
                         }
                         if(midiHighActiveFloat[9]==1){
-                            highC10=message.value-MIDI_MAGIC)/MIDI_MAGIC;
+                            highC10=(message.value-MIDI_MAGIC)/MIDI_MAGIC;
                             if(y_2==TRUE){
                                 highC10=2.0*(message.value-MIDI_MAGIC)/MIDI_MAGIC;
                             }
