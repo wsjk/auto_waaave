@@ -60,4 +60,6 @@ public:
     
     void parametersAssign();
     void midiLatchClear();
+    void loadMidiConfig();
+    int controlVideoReactiveToggle = 39; // default if config missing
 };
