@@ -61,5 +61,17 @@ public:
     void parametersAssign();
     void midiLatchClear();
     void loadMidiConfig();
-    int controlVideoReactiveToggle = 39; // default if config missing
+    int controlVideoReactiveToggle = 39;
+
+    // NEW: moved from former globals (were only used inside ofApp)
+    ofFbo aspect_fix_fbo;
+    ofFbo dry_framebuffer;
+    float my_normalize = 0.0f;
+    float low_value_smoothed = 0.0f;
+    float mid_value_smoothed = 0.0f;
+    float high_value_smoothed = 0.0f;
+    float smoothing_rate = .8f;
+
+    // NEW: was free function
+    void incIndex();
 };
