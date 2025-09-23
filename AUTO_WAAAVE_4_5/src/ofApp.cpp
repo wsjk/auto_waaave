@@ -12,287 +12,29 @@
 
 #include "iostream"
 #include "ofJson.h"
+#include "Globals.h" // extern globals
 
 #define MIDI_MAGIC 63.50f
-
 #define CONTROL_THRESHOLD .035f
 
-//flip this switch to try different scalings
-//0 is 320 1 is 640
-//if you reduce scale to 320 you can up the total delay time to
-//about 4 seconds/ 120 frames
-//so try that out sometime and see how that feels!
-bool scaleswitch=1;
-const int framebufferLength=60;
-//const int framebufferLength=120;
+// REMOVED: duplicated global variable definitions (now only in Globals.cpp)
+// (scaleswitch, framebufferLength, inputswitch, wet_dry_switch, hdmi_aspect_ratio_switch, az, sx, dc, fv, gb, hn,
+//  jm, kk, ll, qw, er, ty, ui, op, fb1_brightx, toroidSwitch, y_skew_switch, x_skew_switch, lumakeyInvertSwitch,
+//  x_mirrorSwitch, y_mirrorSwitch, y_skew, x_skew, mirrorSwitch, fb0_delayamount, width, height,
+//  audioReactiveControlSwitch, lowC*, midC*, highC*, clear_switch, hueInvert, saturationInvert, brightInvert,
+//  cam1_*_invert, horizontalMirror, verticalMirror, clear_flip, x_2/x_5/x_10, y_2/y_5/y_10, z_2/z_5/z_10,
+//  r_2/r_5/r_10, huexx_*, huexy_*, huexz_*, framedelayoffset, framecount, pastFrames,
+//  p_lock*, videoReactiveSwitch, v* vars, midi* latch arrays, range, fftLow/Mid/High,
+//  c_* constants, d_* working vars)
 
-//0 is picaputre, 1 is usbinput
-bool inputswitch=1;
+// NOTE: locals now are class members: aspect_fix_fbo, dry_framebuffer, my_normalize & smoothing vars
 
-//0 is wet (framebuffer fed from final output, internal
-//feedback mode
-//1 is dry (framebuffer fed direct from camera input,
-//traditional video delay mode
-bool wet_dry_switch=1;
-
-//0 is sd aspect ratio
-//use definitely with all of the VSERPI devices 
-//and anything else doing like 480i/p over hdmi
-//1 is corner cropping to fill the screen
-int hdmi_aspect_ratio_switch=0;
-
-float az = 1.0;
-float sx = 0;
-float dc = 0;
-float fv = 1;
-float gb = 1;
-float hn = 1;
-float jm = 0.0;
-float kk = 0.0;
-float ll = 0.0;
-float qw = 0.0;
-float er = 1.0;
-float ty = 0.0;
-float ui = 0.0;
-float op = 0.0;
-
-float fb1_brightx=0.0;
-bool toroidSwitch=0;
-bool y_skew_switch=FALSE;
-bool x_skew_switch=FALSE;
-bool lumakeyInvertSwitch=FALSE;
-bool x_mirrorSwitch=FALSE;
-bool y_mirrorSwitch=FALSE;
-float y_skew=0;
-float x_skew=0;
-bool mirrorSwitch=FALSE;
-
-int fb0_delayamount=0;
-
-//dummy variables for midi control
-
-int width=640;
-int height=480;
-
-
-//dummy variables for midi to audio attenuatiors
-//0 is direct midi, 1 is low_x, 2 is mid_x, 3 is high_x
-int audioReactiveControlSwitch=0;
-
-float lowC1=0.0;
-float lowC2=0.0;
-float lowC3=0.0;
-float lowC4=0.0;
-float lowC5=0.0;
-float lowC6=0.0;
-float lowC7=0.0;
-float lowC8=0.0;
-float lowC9=0.0;
-float lowC10=0.0;
-float lowC11=0.0;
-float lowC12=0.0;
-float lowC13=0.0;
-float lowC14=0.0;
-float lowC15=0.0;
-float lowC16=0.0;
-
-float midC1=0.0;
-float midC2=0.0;
-float midC3=0.0;
-float midC4=0.0;
-float midC5=0.0;
-float midC6=0.0;
-float midC7=0.0;
-float midC8=0.0;
-float midC9=0.0;
-float midC10=0.0;
-float midC11=0.0;
-float midC12=0.0;
-float midC13=0.0;
-float midC14=0.0;
-float midC15=0.0;
-float midC16=0.0;
-
-float highC1=0.0;
-float highC2=0.0;
-float highC3=0.0;
-float highC4=0.0;
-float highC5=0.0;
-float highC6=0.0;
-float highC7=0.0;
-float highC8=0.0;
-float highC9=0.0;
-float highC10=0.0;
-float highC11=0.0;
-float highC12=0.0;
-float highC13=0.0;
-float highC14=0.0;
-float highC15=0.0;
-float highC16=0.0;
-
-
-bool clear_switch=0;
-//toggle switch variables
-bool hueInvert=FALSE;
-bool saturationInvert=FALSE;
-bool brightInvert=FALSE;
-
-bool cam1_h_invert=FALSE;
-bool cam1_s_invert=FALSE;
-bool cam1_b_invert=FALSE;
-
-bool horizontalMirror=FALSE;
-bool verticalMirror=FALSE;
-
-bool clear_flip=FALSE;
-
-bool x_2=FALSE;
-bool x_5=FALSE;
-bool x_10=FALSE;
-
-bool y_2=FALSE;
-bool y_5=FALSE;
-bool y_10=FALSE;
-
-bool z_2=FALSE;
-bool z_5=FALSE;
-bool z_10=FALSE;
-
-bool r_2=FALSE;
-bool r_5=FALSE;
-bool r_10=FALSE;
-
-bool huexx_0=FALSE;
-bool huexx_1=FALSE;
-bool huexx_2=FALSE;
-
-bool huexy_0=FALSE;
-bool huexy_1=FALSE;
-bool huexy_2=FALSE;
-
-bool huexz_0=FALSE;
-bool huexz_1=FALSE;
-bool huexz_2=FALSE;
-
-//framebuffer management biziness
-
-//framebufferLength is the total number of frames that will be stored.  setting framebufferLength to
-//30 while fps is set to 30 means 1 second of video will be stored in memory  
-//75 seems to work ok with usb cams but the capture device might need a little more memory
-
-int framedelayoffset=0;  // this is used as an index to the circular framebuffers eeettt
-unsigned int framecount=0; // framecounter used to calc offset eeettt
-
-//this is an array of framebuffer objects
-ofFbo pastFrames[framebufferLength];
-
-
-void incIndex()  // call this every frame to calc the offset eeettt
-{
+// NEW: member version of former free function
+void ofApp::incIndex() {
     framecount++;
-    framedelayoffset=framecount % framebufferLength;
+    framedelayoffset = framecount % framebufferLength;
 }
 
-//p_lock biz
-//maximum total size of the plock array
-const int p_lock_size=240;
-
-bool p_lock_switch=0;
-
-bool p_lock_erase=0;
-
-//maximum number of p_locks available...maybe there can be one for every knob
-//for whatever wacky reason the last member of this array of arrays has a glitch
-//so i guess just make an extra array and forget about it for now
-const int p_lock_number=17;
-
-//so how we will organize the p_locks is in multidimensional arrays
-//to access the data at timestep x for p_lock 2 (remember counting from 0) we use p_lock[2][x]
-float p_lock[p_lock_number][p_lock_size];
-
-//smoothing parameters(i think for all of these we can array both the arrays and the floats
-//for now let us just try 1 smoothing parameter for everything.
-float p_lock_smooth=.5;
-
-//and then lets try an array of floats for storing the smoothed values
-float p_lock_smoothed[p_lock_number];
-
-//turn on and off writing to the array
-bool p_lock_0_switch=1;
-
-//global counter for all the locks
-int p_lock_increment=0;
-
-float my_normalize=0;
-
-float low_value_smoothed=0.0;
-float mid_value_smoothed=0.0;
-float high_value_smoothed=0.0;
-float smoothing_rate=.8;
-
-ofFbo aspect_fix_fbo;
-ofFbo dry_framebuffer;
-
-bool videoReactiveSwitch=FALSE;
-
-float vLumakeyValue=0.0;
-float vMix=0.0;
-float vHue=0.0;
-float vSaturation=0.0;
-float vBright=0.0;
-float vTemporalFilterMix=0.0;
-float vTemporalFilterResonance=0.0;
-float vSharpenAmount=0.0;
-float vX=0.0;
-float vY=0.0;
-float vZ=0.0;
-float vRotate=0.0;
-float vHuexMod=0.0;
-float vHuexOff=0.0;
-float vHuexLfo=0.0;
-
-//latching
-bool midiActiveFloat[17];
-bool vmidiActiveFloat[17];
-bool midiLowActiveFloat[17];
-bool midiMidActiveFloat[17];
-bool midiHighActiveFloat[17];
-
-float range=200;
-float fftLow;
-float fftMid;
-float fftHigh;
-
-float c_lumakey_value=1.01;
-float c_mix=2;
-float c_hue=.25;
-float c_sat=.2;
-float c_bright=.2;
-float c_temporalFilterMix=1.1;
-float c_sharpenAmount=.5;
-float c_x=.01;
-float c_y=.01;
-float c_z=.05;
-float c_rotate=.314159265;
-float c_huex_off=.25;
-float c_huex_lfo=.25;
-
-int d_delay;
-float d_lumakey_value;
-float d_mix;
-float d_hue;
-float d_sat;
-float d_bright;
-float d_temporalFilterMix;
-float d_temporalFilterResonance;
-float d_sharpenAmount;
-float d_x;
-float d_y;
-float d_z;
-float d_rotate;
-float d_huex_mod;
-float d_huex_off;
-float d_huex_lfo;
 //--------------------------------------------------------------
 void ofApp::setup() {
     //ofSetVerticalSync(true);
@@ -302,7 +44,7 @@ void ofApp::setup() {
     ofHideCursor();
     //omx_settings();
     inputSetup();
-    loadMidiConfig(); // load CC mappings before midiSetup
+    loadMidiConfig();
     midiSetup();
     fbDeclareAndAllocate();
     shader_mixer.load("shadersES2/shader_mixer");
@@ -512,8 +254,8 @@ void ofApp::draw() {
     }//endifwetdry1
     
     pastFrames[abs(framebufferLength-framedelayoffset)-1].end(); //eeettt
-    incIndex();
-    
+    incIndex(); // now member
+
     //p_lock biz
     if(p_lock_switch==1){
         p_lock_increment++;
@@ -855,7 +597,6 @@ void ofApp::keyPressed(int key) {
             pastFrames[i].begin();
             ofClear(0,0,0,255);
             pastFrames[i].end();
-            
         }//endifor
     }
     
@@ -946,8 +687,7 @@ void ofApp::midibiz(){
                 //if u uncomment the second line on each of these if statements that will switch thems to unipolor
                 //controls (ranging from 0.0to 1.0) if  you prefer
                 
-                //videoreactive
-                // OLD: if(message.control==39){
+                //videoreactive (CC now loaded from JSON)
                 if(message.control==controlVideoReactiveToggle){
                     if(message.value==127){
                         videoReactiveSwitch=1;
