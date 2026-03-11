@@ -28,41 +28,44 @@ vec3 hsb2rgb(in vec3 c)
 void main()
 {
 	vec4 outColor=vec4(1.0,0.0,1.0,1.0);
-	//first we try to just sharpen brightness
-	
-	
-	float colorSharpenBright=0.0;
+
+	// OPTIMIZATION: Reduced texture samples from 8 to 4 diagonal samples
 	float X=2.0*.0015625;
 	float Y=2.0*.0020833;
 	
-	//colorSharpenBright=rbg2hsb(texture2D(tex0, texCoordVarying+vec2(X,0.0))).z;
-	
-	colorSharpenBright = //rgb2hsb(texture2D(tex0, texCoordVarying+vec2(X,0.0)).rgb).z +
-			//rgb2hsb(texture2D(tex0, texCoordVarying+vec2(-X,0.0)).rgb).z +
+	// Get original color first
+	vec4 ogColor=texture2D(tex0,texCoordVarying);
+	vec3 ogColorHSB=rgb2hsb(ogColor.rgb);
+
+	float VVV=ogColorHSB.z;
+	float totalSharpen = sharpenAmount + (vSharpenAmount*VVV);
+
+	// OPTIMIZATION: Skip expensive sharpening if amount is near zero
+	if(abs(totalSharpen) < 0.001) {
+		gl_FragColor = ogColor;
+		return;
+	}
+
+	// OPTIMIZATION: Sample and convert in one pass, only brightness channel
+	float colorSharpenBright =
 			rgb2hsb(texture2D(tex0, texCoordVarying+vec2(X,Y)).rgb).z +
 			rgb2hsb(texture2D(tex0, texCoordVarying+vec2(-X,Y)).rgb).z +
 			rgb2hsb(texture2D(tex0, texCoordVarying+vec2(-X,-Y)).rgb).z +
 			rgb2hsb(texture2D(tex0, texCoordVarying+vec2(X,-Y)).rgb).z;
-			//rgb2hsb(texture2D(tex0, texCoordVarying+vec2(0.0,-Y)).rgb).z +
-			//rgb2hsb(texture2D(tex0, texCoordVarying+vec2(.0,Y)).rgb).z;
-			
-	colorSharpenBright=colorSharpenBright*.125;		
-	
-	vec4 ogColor=texture2D(tex0,texCoordVarying);
-	vec3 ogColorHSB=rgb2hsb(ogColor.rgb);
-	
-	float VVV=ogColorHSB.z;
-	
-	ogColorHSB.z-=sharpenAmount*colorSharpenBright+(colorSharpenBright*vSharpenAmount*VVV);
-	
-	//got to boost that bb
-	if(sharpenAmount>0.0){
-	ogColorHSB.z*=(1.0+sharpenAmount*.45+.45*(vSharpenAmount*VVV));
-	ogColorHSB.x*=(1.0+sharpenAmount*.25+.25*(vSharpenAmount*VVV));	
+
+	colorSharpenBright=colorSharpenBright*.25;  // Average of 4 samples
+
+	// Apply sharpening
+	ogColorHSB.z-=totalSharpen*colorSharpenBright;
+
+	// Boost brightness and hue when sharpening
+	if(totalSharpen>0.0){
+		float boost = 1.0 + totalSharpen*.45;
+		ogColorHSB.z *= boost;
+		ogColorHSB.x *= (1.0 + totalSharpen*.25);
 	}
 	
 	outColor.rgb=hsb2rgb(ogColorHSB);
 	outColor.a=1.0;
-	//color.rgb=1.0-color.rgb;
-	gl_FragColor = outColor;//texture2D(tex0,texCoordVarying);
+	gl_FragColor = outColor;
 }

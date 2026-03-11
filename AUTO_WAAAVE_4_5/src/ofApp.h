@@ -32,16 +32,43 @@ public:
 	ofxOMXCameraSettings settings;
     ofxOMXVideoGrabber videoGrabber;
 	*/
+	// MIDI handling structures for optimized control
+	struct MidiControlConfig {
+		int ccNumber;
+		int paramIndex;
+		float* videoReactivePtr;
+		float* lowPtr;
+		float* midPtr;
+		float* highPtr;
+		bool isBipolar;  // true = use MIDI_MAGIC offset
+		float multiplier; // for x_2, x_5, etc.
+	};
+
 	void midibiz();
-	void midibizOld();
+	void midibizOptimized();
+	void processMidiControl(ofxMidiMessage& msg, MidiControlConfig& ctrl);
 	void newMidiMessage(ofxMidiMessage& eventArgs);
 	void midiSetup();
 	ofxMidiIn midiIn;
 	std::vector<ofxMidiMessage> midiMessages;
-	std::size_t maxMessages = 10; //< max number of messages to keep track of
+	std::size_t maxMessages = 2; // OPTIMIZATION: Reduced from 10 to 2
 
 	ofShader shader_mixer;
 	ofShader shaderSharpen;
+
+	// OPTIMIZATION: Shader uniform caching to avoid redundant updates
+	struct ShaderUniforms {
+		float lumakey, fbMix, fbHue, fbSat, fbBright;
+		float temporalFilterMix, temporalFilterResonance;
+		float sharpenAmount;
+		float x, y, z, rotate;
+		float huexMod, huexOff, huexLfo;
+		int toroidSwitch, mirrorSwitch, brightInvert, hueInvert, saturationInvert;
+		int horizontalMirror, verticalMirror, lumakeyInvertSwitch;
+	};
+	ShaderUniforms currentUniforms;
+	ShaderUniforms previousUniforms;
+	bool forceUniformUpdate;
 
 	void fbDeclareAndAllocate();
     ofFbo framebuffer0;

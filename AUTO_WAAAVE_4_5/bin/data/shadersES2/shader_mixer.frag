@@ -113,12 +113,9 @@ void main()
 	
 	vec4 input1Color = texture2D(tex0, texCoordVarying);
 
-	vec3 input1ColorHsb= rgb2hsb(vec3(input1Color.r,input1Color.g,input1Color.b));
-	
-	//videoreactive attenuator
-	float VVV=input1ColorHsb.z;
-
-	vec4 temporalFilterColor = texture2D(temporalFilter, texCoordVarying);
+	// OPTIMIZATION: Convert to HSB once and cache the brightness for video-reactive
+	vec3 input1ColorHsb= rgb2hsb(input1Color.rgb);
+	float VVV=input1ColorHsb.z; // videoreactive attenuator
 
 	/*********coordinate zones******************/
 	//offset coords to make center of the screen (0,0)
@@ -195,8 +192,8 @@ void main()
 		if(fbCoord.y<0.0){fbColor=vec4(0.0);}
 	}
 	
-	//convert to hsb
-	vec3 fbColorHsb= rgb2hsb(vec3(fbColor.r,fbColor.g,fbColor.b));
+	// OPTIMIZATION: Convert to hsb once, work in HSB space, convert back once at end
+	vec3 fbColorHsb= rgb2hsb(fbColor.rgb);
 
 	//attenuate hue & chaotic huezones
 	fbColorHsb.x=abs(fbColorHsb.x*fbHue*(1.0+vHue*VVV)+(fbHuexLfo+vHuexLfo*VVV)*sin(fbColorHsb.x/3.14));
@@ -210,15 +207,9 @@ void main()
 	if(saturationInvert==1){fbColorHsb.y=1.0-fbColorHsb.y;}
 	if(hueInvert==1){fbColorHsb.x=fract(abs(1.0-fbColorHsb.x));}
 	
-	//convert back to rgba
-	fbColor=vec4(vec3(hsb2rgb(vec3(fbColorHsb.x,fbColorHsb.y,fbColorHsb.z))),1.0);
-	
-	//up the temporal Filter resonance
-	vec3 temporalFilterColorHsb= rgb2hsb(vec3(temporalFilterColor.r,temporalFilterColor.g,temporalFilterColor.b));
-	temporalFilterColorHsb.z=clamp(temporalFilterColorHsb.z*(1.0+.5*temporalFilterResonance*(1.0+vFb1X*VVV)),0.0,1.0);
-	temporalFilterColorHsb.y=clamp(temporalFilterColorHsb.y*(1.0+.25*temporalFilterResonance*(1.0+vFb1X*VVV)),0.0,1.0);
-	temporalFilterColor=vec4(vec3(hsb2rgb(vec3(temporalFilterColorHsb.x,temporalFilterColorHsb.y,temporalFilterColorHsb.z))),1.0);
-	
+	// OPTIMIZATION: Convert back to rgba once after all HSB operations
+	fbColor=vec4(hsb2rgb(fbColorHsb),1.0);
+
 	/****MIX AND KEYING**/
 	//first 'additive/subtractive' lerping
 	color=mix(input1Color, fbColor,fbMix+(vMix*VVV));
@@ -232,8 +223,16 @@ void main()
 		if(VVV>lumakey+(vLumakey*VVV)){color=fbColor;}
 	}
 	
-	//add temporal filter into the mix
-	color=mix(color,temporalFilterColor,temporalFilterMix+(vtemporalFilterMix*VVV));
-	
+	// OPTIMIZATION: Only load and process temporal filter if needed (temporalFilterMix > 0)
+	float totalTemporalMix = temporalFilterMix+(vtemporalFilterMix*VVV);
+	if(totalTemporalMix > 0.001) {
+		vec4 temporalFilterColor = texture2D(temporalFilter, texCoordVarying);
+		vec3 temporalFilterColorHsb= rgb2hsb(temporalFilterColor.rgb);
+		temporalFilterColorHsb.z=clamp(temporalFilterColorHsb.z*(1.0+.5*temporalFilterResonance*(1.0+vFb1X*VVV)),0.0,1.0);
+		temporalFilterColorHsb.y=clamp(temporalFilterColorHsb.y*(1.0+.25*temporalFilterResonance*(1.0+vFb1X*VVV)),0.0,1.0);
+		temporalFilterColor=vec4(hsb2rgb(temporalFilterColorHsb),1.0);
+		color=mix(color,temporalFilterColor,totalTemporalMix);
+	}
+
 	gl_FragColor = color;
 }
