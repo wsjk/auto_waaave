@@ -251,6 +251,7 @@ float vHuexOff=0.0;
 float vHuexLfo=0.0;
 
 //latching
+bool midiLatchingEnabled=true; // global switch for MIDI latching feature
 bool midiActiveFloat[17];
 bool vmidiActiveFloat[17];
 bool midiLowActiveFloat[17];
@@ -312,6 +313,11 @@ void ofApp::setup() {
     
     p_lockClear();
     midiLatchClear();
+}
+//-------------------------------------------------------------
+void ofApp::setMidiLatching(bool enabled) {
+    midiLatchingEnabled = enabled;
+    cout << "MIDI Latching is now " << (enabled ? "ENABLED" : "DISABLED") << endl;
 }
 //-------------------------------------------------------------
 void ofApp::midiLatchClear(){
@@ -1208,19 +1214,31 @@ void ofApp::midibiz(){
                         midiHighActiveFloat[0]=0;
                         if(p_lock_0_switch==1){
                             vmidiActiveFloat[0]=0;
-                            if(abs(message.value/127.0f-p_lock[0][p_lock_increment])<CONTROL_THRESHOLD){
+                            if(midiLatchingEnabled){
+                                if(abs(message.value/127.0f-p_lock[0][p_lock_increment])<CONTROL_THRESHOLD){
+                                    midiActiveFloat[0]=1;
+                                }
+                                if(midiActiveFloat[0]==1){
+                                    p_lock[0][p_lock_increment]=message.value/127.0f;
+                                }
+                            } else {
+                                // Direct control without latching
                                 midiActiveFloat[0]=1;
-                            }
-                            if(midiActiveFloat[0]==1){
                                 p_lock[0][p_lock_increment]=message.value/127.0f;
                             }
                         }
                         if(videoReactiveSwitch==1){
                             midiActiveFloat[0]=0;
-                            if(abs(message.value/127.0f-vLumakeyValue)<CONTROL_THRESHOLD){
+                            if(midiLatchingEnabled){
+                                if(abs(message.value/127.0f-vLumakeyValue)<CONTROL_THRESHOLD){
+                                    vmidiActiveFloat[0]=1;
+                                }
+                                if(vmidiActiveFloat[0]==1){
+                                    vLumakeyValue=message.value/127.0f;
+                                }
+                            } else {
+                                // Direct control without latching
                                 vmidiActiveFloat[0]=1;
-                            }
-                            if(vmidiActiveFloat[0]==1){
                                 vLumakeyValue=message.value/127.0f;
                             }
                         }
@@ -1232,30 +1250,48 @@ void ofApp::midibiz(){
                     if(audioReactiveControlSwitch==1){
                         midiMidActiveFloat[0]=0;
                         midiHighActiveFloat[0]=0;
-                        if(abs(message.value/127.0f-lowC1)<CONTROL_THRESHOLD){
+                        if(midiLatchingEnabled){
+                            if(abs(message.value/127.0f-lowC1)<CONTROL_THRESHOLD){
+                                midiLowActiveFloat[0]=1;
+                            }
+                            if(midiLowActiveFloat[0]==1){
+                                lowC1=message.value/127.0f;
+                            }
+                        } else {
+                            // Direct control without latching
                             midiLowActiveFloat[0]=1;
-                        }
-                        if(midiLowActiveFloat[0]==1){
                             lowC1=message.value/127.0f;
                         }
                     }
                     if(audioReactiveControlSwitch==2){
                         midiLowActiveFloat[0]=0;
                         midiHighActiveFloat[0]=0;
-                        if(abs(message.value/127.0f-midC1)<CONTROL_THRESHOLD){
+                        if(midiLatchingEnabled){
+                            if(abs(message.value/127.0f-midC1)<CONTROL_THRESHOLD){
+                                midiMidActiveFloat[0]=1;
+                            }
+                            if(midiMidActiveFloat[0]==1){
+                                midC1=message.value/127.0f;
+                            }
+                        } else {
+                            // Direct control without latching
                             midiMidActiveFloat[0]=1;
-                        }
-                        if(midiMidActiveFloat[0]==1){
                             midC1=message.value/127.0f;
                         }
                     }
                     if(audioReactiveControlSwitch==3){
                         midiLowActiveFloat[0]=0;
                         midiMidActiveFloat[0]=0;
-                        if(abs(message.value/127.0f-highC1)<CONTROL_THRESHOLD){
+                        if(midiLatchingEnabled){
+                            if(abs(message.value/127.0f-highC1)<CONTROL_THRESHOLD){
+                                midiHighActiveFloat[0]=1;
+                            }
+                            if(midiHighActiveFloat[0]==1){
+                                highC1=message.value/127.0f;
+                            }
+                        } else {
+                            // Direct control without latching
                             midiHighActiveFloat[0]=1;
-                        }
-                        if(midiHighActiveFloat[0]==1){
                             highC1=message.value/127.0f;
                         }
                     }
@@ -1267,19 +1303,31 @@ void ofApp::midibiz(){
                         midiHighActiveFloat[1]=0;
                         if(p_lock_0_switch==1){
                             vmidiActiveFloat[1]=0;
-                            if(abs((message.value-MIDI_MAGIC)/MIDI_MAGIC-p_lock[1][p_lock_increment])<CONTROL_THRESHOLD){
+                            if(midiLatchingEnabled){
+                                if(abs((message.value-MIDI_MAGIC)/MIDI_MAGIC-p_lock[1][p_lock_increment])<CONTROL_THRESHOLD){
+                                    midiActiveFloat[1]=1;
+                                }
+                                if(midiActiveFloat[1]==1){
+                                    p_lock[1][p_lock_increment]=(message.value-MIDI_MAGIC)/MIDI_MAGIC;
+                                }
+                            } else {
+                                // Direct control without latching
                                 midiActiveFloat[1]=1;
-                            }
-                            if(midiActiveFloat[1]==1){
                                 p_lock[1][p_lock_increment]=(message.value-MIDI_MAGIC)/MIDI_MAGIC;
                             }
                         }
                         if(videoReactiveSwitch==1){
                             midiActiveFloat[1]=0;
-                            if(abs((message.value-MIDI_MAGIC)/MIDI_MAGIC-vMix)<CONTROL_THRESHOLD){
+                            if(midiLatchingEnabled){
+                                if(abs((message.value-MIDI_MAGIC)/MIDI_MAGIC-vMix)<CONTROL_THRESHOLD){
+                                    vmidiActiveFloat[1]=1;
+                                }
+                                if(vmidiActiveFloat[1]==1){
+                                    vMix=(message.value-MIDI_MAGIC)/MIDI_MAGIC;
+                                }
+                            } else {
+                                // Direct control without latching
                                 vmidiActiveFloat[1]=1;
-                            }
-                            if(vmidiActiveFloat[1]==1){
                                 vMix=(message.value-MIDI_MAGIC)/MIDI_MAGIC;
                             }
                         }
@@ -1291,30 +1339,48 @@ void ofApp::midibiz(){
                     if(audioReactiveControlSwitch==1){
                         midiMidActiveFloat[1]=0;
                         midiHighActiveFloat[1]=0;
-                        if(abs((message.value-MIDI_MAGIC)/MIDI_MAGIC-lowC2)<CONTROL_THRESHOLD){
+                        if(midiLatchingEnabled){
+                            if(abs((message.value-MIDI_MAGIC)/MIDI_MAGIC-lowC2)<CONTROL_THRESHOLD){
+                                midiLowActiveFloat[1]=1;
+                            }
+                            if(midiLowActiveFloat[1]==1){
+                                lowC2=(message.value-MIDI_MAGIC)/MIDI_MAGIC;
+                            }
+                        } else {
+                            // Direct control without latching
                             midiLowActiveFloat[1]=1;
-                        }
-                        if(midiLowActiveFloat[1]==1){
                             lowC2=(message.value-MIDI_MAGIC)/MIDI_MAGIC;
                         }
                     }
                     if(audioReactiveControlSwitch==2){
                         midiLowActiveFloat[1]=0;
                         midiHighActiveFloat[1]=0;
-                        if(abs((message.value-MIDI_MAGIC)/MIDI_MAGIC-midC2)<CONTROL_THRESHOLD){
+                        if(midiLatchingEnabled){
+                            if(abs((message.value-MIDI_MAGIC)/MIDI_MAGIC-midC2)<CONTROL_THRESHOLD){
+                                midiMidActiveFloat[1]=1;
+                            }
+                            if(midiMidActiveFloat[1]==1){
+                                midC2=(message.value-MIDI_MAGIC)/MIDI_MAGIC;
+                            }
+                        } else {
+                            // Direct control without latching
                             midiMidActiveFloat[1]=1;
-                        }
-                        if(midiMidActiveFloat[1]==1){
                             midC2=(message.value-MIDI_MAGIC)/MIDI_MAGIC;
                         }
                     }
                     if(audioReactiveControlSwitch==3){
                         midiLowActiveFloat[1]=0;
                         midiMidActiveFloat[1]=0;
-                        if(abs((message.value-MIDI_MAGIC)/MIDI_MAGIC-highC2)<CONTROL_THRESHOLD){
+                        if(midiLatchingEnabled){
+                            if(abs((message.value-MIDI_MAGIC)/MIDI_MAGIC-highC2)<CONTROL_THRESHOLD){
+                                midiHighActiveFloat[1]=1;
+                            }
+                            if(midiHighActiveFloat[1]==1){
+                                highC2=(message.value-MIDI_MAGIC)/MIDI_MAGIC;
+                            }
+                        } else {
+                            // Direct control without latching
                             midiHighActiveFloat[1]=1;
-                        }
-                        if(midiHighActiveFloat[1]==1){
                             highC2=(message.value-MIDI_MAGIC)/MIDI_MAGIC;
                         }
                     }

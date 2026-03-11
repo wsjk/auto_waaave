@@ -24,6 +24,8 @@ public:
 	void draw();
 	void exit();
 	
+	void setMidiLatching(bool enabled); // set MIDI latching on/off
+
 	void keyPressed(int key);
 	void keyReleased(int key);
 	/*

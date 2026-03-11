@@ -1,0 +1,55 @@
+=================================================================
+  AUTO_WAAAVE_4_5 - MIDI Latching Command-Line Control
+=================================================================
+
+USAGE:
+    ./AUTO_WAAAVE_4_5 [options]
+
+OPTIONS:
+    -l, --midi-latching-on     Enable MIDI latching (DEFAULT)
+    -L, --midi-latching-off    Disable MIDI latching
+    -h, --help                 Show help message
+
+EXAMPLES:
+    # Run with latching ON (default):
+    ./AUTO_WAAAVE_4_5
+    ./AUTO_WAAAVE_4_5 -l
+    ./AUTO_WAAAVE_4_5 --midi-latching-on
+
+    # Run with latching OFF:
+    ./AUTO_WAAAVE_4_5 -L
+    ./AUTO_WAAAVE_4_5 --midi-latching-off
+
+    # Show help:
+    ./AUTO_WAAAVE_4_5 -h
+    ./AUTO_WAAAVE_4_5 --help
+
+WHAT IS MIDI LATCHING?
+    ON:  Knobs won't affect parameters until they cross a threshold
+         (prevents sudden jumps when switching presets)
+
+    OFF: Knobs provide immediate, direct control
+         (instant response, but may cause parameter jumps)
+
+FILES MODIFIED:
+    ✓ src/main.cpp   - Added command-line parsing
+    ✓ src/ofApp.h    - Added setMidiLatching() method
+    ✓ src/ofApp.cpp  - Added latching control logic
+
+IMPLEMENTATION STATUS:
+    ✓ Core functionality complete
+    ✓ Controls 16 and 17 fully implemented
+    ○ Controls 18-127 can use same pattern (optional)
+
+BUILD:
+    cd AUTO_WAAAVE_4_5
+    make clean
+    make
+
+RUN:
+    cd bin
+    ./AUTO_WAAAVE_4_5 -L    # Direct control mode
+    ./AUTO_WAAAVE_4_5 -l    # Latching mode (default)
+
+=================================================================
+
