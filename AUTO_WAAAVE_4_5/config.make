@@ -128,8 +128,9 @@
 #
 #   Note: Leave a leading space when adding list items with the += operator
 ################################################################################
-# PROJECT_OPTIMIZATION_CFLAGS_RELEASE = 
-# PROJECT_OPTIMIZATION_CFLAGS_DEBUG = 
+# OPTIMIZATION: Aggressive optimization flags for Release builds
+PROJECT_OPTIMIZATION_CFLAGS_RELEASE = -O3 -march=native -mtune=native -ffast-math -funroll-loops -fomit-frame-pointer
+# PROJECT_OPTIMIZATION_CFLAGS_DEBUG =
 
 ################################################################################
 # PROJECT COMPILERS
