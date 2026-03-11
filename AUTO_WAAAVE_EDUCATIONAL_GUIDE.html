@@ -1,0 +1,1931 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AUTO_WAAAVE: Educational Guide to openFrameworks & Real-Time Video Synthesis</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f4f4f4;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: #2c3e50;
+            border-bottom: 4px solid #3498db;
+            padding-bottom: 10px;
+            margin-bottom: 30px;
+        }
+
+        h2 {
+            color: #2980b9;
+            margin-top: 40px;
+            margin-bottom: 20px;
+            padding-left: 10px;
+            border-left: 5px solid #3498db;
+        }
+
+        h3 {
+            color: #16a085;
+            margin-top: 30px;
+            margin-bottom: 15px;
+        }
+
+        h4 {
+            color: #27ae60;
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }
+
+        .callout {
+            background: #ecf0f1;
+            border-left: 5px solid #e74c3c;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 3px;
+        }
+
+        .callout.info {
+            border-left-color: #3498db;
+            background: #e3f2fd;
+        }
+
+        .callout.success {
+            border-left-color: #27ae60;
+            background: #e8f5e9;
+        }
+
+        .callout.warning {
+            border-left-color: #f39c12;
+            background: #fff3e0;
+        }
+
+        .callout-title {
+            font-weight: bold;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            font-size: 0.9em;
+        }
+
+        code {
+            background: #f8f8f8;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            color: #e74c3c;
+            font-size: 0.9em;
+        }
+
+        pre {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 20px;
+            border-radius: 5px;
+            overflow-x: auto;
+            margin: 20px 0;
+            line-height: 1.4;
+        }
+
+        pre code {
+            background: transparent;
+            color: inherit;
+            padding: 0;
+        }
+
+        .comment {
+            color: #95a5a6;
+            font-style: italic;
+        }
+
+        .keyword {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+
+        .function {
+            color: #3498db;
+        }
+
+        .string {
+            color: #27ae60;
+        }
+
+        .number {
+            color: #f39c12;
+        }
+
+        ul, ol {
+            margin: 15px 0 15px 30px;
+        }
+
+        li {
+            margin: 8px 0;
+        }
+
+        .diagram {
+            background: white;
+            border: 2px solid #3498db;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+            font-family: monospace;
+        }
+
+        .flow {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            flex-wrap: wrap;
+            margin: 20px 0;
+        }
+
+        .flow-item {
+            background: #3498db;
+            color: white;
+            padding: 15px 25px;
+            border-radius: 5px;
+            margin: 10px;
+            font-weight: bold;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        .flow-arrow {
+            font-size: 2em;
+            color: #3498db;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+
+        th {
+            background: #3498db;
+            color: white;
+        }
+
+        tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+
+        .toc {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 30px 0;
+        }
+
+        .toc ul {
+            list-style: none;
+            margin-left: 0;
+        }
+
+        .toc a {
+            color: #2980b9;
+            text-decoration: none;
+        }
+
+        .toc a:hover {
+            text-decoration: underline;
+        }
+
+        .step {
+            background: #ecf0f1;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 4px solid #3498db;
+            border-radius: 3px;
+        }
+
+        .step-number {
+            background: #3498db;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 10px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 AUTO_WAAAVE: A Complete Guide to Real-Time Video Synthesis with openFrameworks</h1>
+
+        <p style="font-size: 1.1em; color: #555; margin-bottom: 30px;">
+            This educational guide breaks down a professional real-time video synthesis application built with openFrameworks and C++.
+            You'll learn about framebuffer management, GPU shaders, MIDI control, audio reactivity, and digital signal processing concepts.
+        </p>
+
+        <div class="toc">
+            <h3>📚 Table of Contents</h3>
+            <ul>
+                <li><a href="#overview">1. Project Overview & Architecture</a></li>
+                <li><a href="#setup">2. Application Setup & Initialization</a></li>
+                <li><a href="#framebuffers">3. Framebuffer Management & Circular Buffers</a></li>
+                <li><a href="#shaders">4. GPU Shaders & Video Effects</a></li>
+                <li><a href="#midi">5. MIDI Control System</a></li>
+                <li><a href="#audio">6. Audio Reactivity & FFT</a></li>
+                <li><a href="#plocks">7. Parameter Locks (Automation)</a></li>
+                <li><a href="#render">8. The Render Pipeline</a></li>
+                <li><a href="#patterns">9. C++ Patterns & Best Practices</a></li>
+            </ul>
+        </div>
+
+        <h2 id="overview">1. 🏗️ Project Overview & Architecture</h2>
+
+        <p>
+            AUTO_WAAAVE is a <strong>real-time video synthesizer</strong> designed to run on a Raspberry Pi.
+            It captures video from a camera, applies GPU-accelerated effects, and outputs the result with minimal latency.
+        </p>
+
+        <div class="callout info">
+            <div class="callout-title">💡 What is openFrameworks?</div>
+            <p>
+                openFrameworks (oF) is a C++ toolkit for creative coding. Think of it as a wrapper that makes it easy to:
+            </p>
+            <ul>
+                <li>Work with graphics (OpenGL)</li>
+                <li>Capture video and audio</li>
+                <li>Handle user input (keyboard, MIDI)</li>
+                <li>Load images, fonts, and files</li>
+            </ul>
+            <p>
+                Instead of writing hundreds of lines to open a window or load a video, oF provides simple functions like <code>ofSetupWindow()</code> and <code>ofVideoGrabber.setup()</code>.
+            </p>
+        </div>
+
+        <h3>Application Architecture</h3>
+
+        <div class="flow">
+            <div class="flow-item">Camera Input</div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-item">Framebuffer Array<br/>(60 frames)</div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-item">GPU Shaders<br/>(Effects)</div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-item">Screen Output</div>
+        </div>
+
+        <p style="text-align: center; color: #7f8c8d; margin: 20px 0;">
+            ↑<br/>
+            MIDI Controller + Audio Input (FFT Analysis)
+        </p>
+
+        <h3>Key Components</h3>
+
+        <table>
+            <tr>
+                <th>Component</th>
+                <th>Purpose</th>
+                <th>Technology</th>
+            </tr>
+            <tr>
+                <td><strong>Video Input</strong></td>
+                <td>Captures frames from USB webcam</td>
+                <td><code>ofVideoGrabber</code></td>
+            </tr>
+            <tr>
+                <td><strong>Circular Buffer</strong></td>
+                <td>Stores 60 frames (~2 seconds) for video delay effects</td>
+                <td>Array of <code>ofFbo</code> objects</td>
+            </tr>
+            <tr>
+                <td><strong>GPU Shaders</strong></td>
+                <td>Applies effects (color, geometry, feedback) in real-time</td>
+                <td>GLSL ES 2.0 (OpenGL shaders)</td>
+            </tr>
+            <tr>
+                <td><strong>MIDI Input</strong></td>
+                <td>Real-time control of parameters via MIDI controller</td>
+                <td><code>ofxMidi</code> addon</td>
+            </tr>
+            <tr>
+                <td><strong>Audio Analysis</strong></td>
+                <td>Analyzes audio frequencies to drive visual effects</td>
+                <td><code>ofxProcessFFT</code> addon (Fast Fourier Transform)</td>
+            </tr>
+            <tr>
+                <td><strong>Parameter Locks</strong></td>
+                <td>Records and plays back parameter automation</td>
+                <td>2D array with interpolation</td>
+            </tr>
+        </table>
+
+        <h2 id="setup">2. 🚀 Application Setup & Initialization</h2>
+
+        <h3>The openFrameworks Lifecycle</h3>
+
+        <div class="callout info">
+            <div class="callout-title">📖 Understanding the oF App Lifecycle</div>
+            <p>Every openFrameworks app follows this pattern:</p>
+            <ol>
+                <li><code>setup()</code> - Called once when the app starts</li>
+                <li><code>update()</code> - Called every frame to update logic</li>
+                <li><code>draw()</code> - Called every frame to render graphics</li>
+                <li><code>exit()</code> - Called when the app closes</li>
+            </ol>
+            <p>
+                Think of it like a game loop: the system repeatedly calls <code>update()</code> then <code>draw()</code>
+                at your target framerate (30 FPS in this project).
+            </p>
+        </div>
+
+        <h3>Main Entry Point</h3>
+
+<pre><code><span class="comment">// src/main.cpp - The application entry point</span>
+
+<span class="keyword">#include</span> <span class="string">"ofMain.h"</span>
+<span class="keyword">#include</span> <span class="string">"ofApp.h"</span>
+
+<span class="keyword">int</span> <span class="function">main</span>() {
+    <span class="comment">// Step 1: Configure OpenGL ES 2.0 for Raspberry Pi</span>
+    <span class="comment">// Why ES 2.0? Raspberry Pi uses embedded GPU that supports GLES</span>
+    ofGLESWindowSettings settings;
+    settings.glesVersion = <span class="number">2</span>;
+
+    <span class="comment">// Step 2: Set output resolution (CEA mode 2 = 720x480)</span>
+    <span class="comment">// This must match your display's capabilities</span>
+    settings.setSize(<span class="number">720</span>, <span class="number">480</span>);
+
+    <span class="comment">// Step 3: Create the window with these settings</span>
+    ofCreateWindow(settings);
+
+    <span class="comment">// Step 4: Create and run the application</span>
+    <span class="comment">// This starts the setup() → update() → draw() loop</span>
+    ofRunApp(<span class="keyword">new</span> ofApp());
+}</code></pre>
+
+        <div class="callout warning">
+            <div class="callout-title">⚠️ Memory Management Note</div>
+            <p>
+                Notice <code>new ofApp()</code> - we're dynamically allocating memory. openFrameworks will handle
+                cleanup automatically, but in general C++ practice, every <code>new</code> should have a corresponding
+                <code>delete</code>. Here, oF manages this for us.
+            </p>
+        </div>
+
+        <h3>Application Setup Function</h3>
+
+<pre><code><span class="comment">// src/ofApp.cpp - setup() is called once at startup</span>
+
+<span class="keyword">void</span> ofApp::<span class="function">setup</span>() {
+    <span class="comment">// STEP 1: Configure frame rate</span>
+    <span class="comment">// Why 30 FPS? Balance between smoothness and CPU/GPU load on RPi</span>
+    ofSetFrameRate(<span class="number">30</span>);
+
+    <span class="comment">// STEP 2: Set background color (black = 0)</span>
+    ofBackground(<span class="number">0</span>);
+
+    <span class="comment">// STEP 3: Hide mouse cursor for cleaner display</span>
+    ofHideCursor();
+
+    <span class="comment">// STEP 4: Initialize subsystems in order</span>
+    <span class="comment">// Order matters! Each depends on previous setup</span>
+    inputSetup();           <span class="comment">// Configure camera/video input</span>
+    midiSetup();            <span class="comment">// Connect to MIDI controller</span>
+    fbDeclareAndAllocate(); <span class="comment">// Allocate GPU memory for framebuffers</span>
+
+    <span class="comment">// STEP 5: Load GPU shaders from disk</span>
+    <span class="comment">// These are compiled by the GPU at runtime</span>
+    shader_mixer.load(<span class="string">"shadersES2/shader_mixer"</span>);
+    shaderSharpen.load(<span class="string">"shadersES2/shaderSharpen"</span>);
+
+    <span class="comment">// STEP 6: Setup audio analysis</span>
+    fft.setup();
+    fft.setNormalize(<span class="keyword">false</span>); <span class="comment">// We'll manually normalize later</span>
+
+    <span class="comment">// STEP 7: Initialize parameter automation arrays</span>
+    p_lockClear();
+    midiLatchClear();
+}</code></pre>
+
+        <div class="callout success">
+            <div class="callout-title">✅ Initialization Best Practice</div>
+            <p>
+                Notice the careful ordering of initialization. This pattern prevents common bugs:
+            </p>
+            <ul>
+                <li>Initialize simple state first (frame rate, colors)</li>
+                <li>Then hardware interfaces (camera, MIDI)</li>
+                <li>Then GPU resources (framebuffers, shaders)</li>
+                <li>Finally, data structures that depend on everything else</li>
+            </ul>
+            <p>
+                If you initialize framebuffers before setting the resolution, you might allocate the wrong size!
+            </p>
+        </div>
+
+        <h2 id="framebuffers">3. 🎞️ Framebuffer Management & Circular Buffers</h2>
+
+        <h3>What is a Framebuffer?</h3>
+
+        <div class="callout info">
+            <div class="callout-title">💡 Framebuffer (FBO) Explained</div>
+            <p>
+                A <strong>Framebuffer Object (FBO)</strong> is like a "virtual canvas" in GPU memory. Instead of drawing
+                directly to the screen, you can draw to an FBO. This lets you:
+            </p>
+            <ul>
+                <li>Render multiple "layers" of graphics</li>
+                <li>Apply effects to rendered content</li>
+                <li>Store frames for later use (our video delay effect)</li>
+                <li>Chain multiple effects together</li>
+            </ul>
+            <p>
+                Think of it like working in Photoshop layers - you can composite, blend, and process each layer independently.
+            </p>
+        </div>
+
+        <h3>The Circular Buffer Pattern</h3>
+
+        <p>
+            The core of this application is a <strong>circular buffer</strong> (also called a ring buffer).
+            This is a classic data structure for implementing video delay effects.
+        </p>
+
+        <div class="diagram">
+            <h4>Circular Buffer Visualization (60 frames)</h4>
+            <pre>
+    Current Frame (write position)
+           ↓
+    [0][1][2][3][4]...[57][58][59]
+     ↑                           ↑
+     └───────────────────────────┘
+     When we reach frame 59, we wrap
+     back to frame 0 (circular!)
+            </pre>
+        </div>
+
+<pre><code><span class="comment">// Global variables at file scope</span>
+
+<span class="keyword">const int</span> framebufferLength = <span class="number">60</span>; <span class="comment">// Store 60 frames (2 seconds @ 30fps)</span>
+
+<span class="comment">// The actual buffer - an array of framebuffer objects</span>
+ofFbo pastFrames[framebufferLength];
+
+<span class="comment">// Tracking variables for circular indexing</span>
+<span class="keyword">unsigned int</span> framecount = <span class="number">0</span>;       <span class="comment">// Total frames since start</span>
+<span class="keyword">int</span> framedelayoffset = <span class="number">0</span>;           <span class="comment">// Current position in circular buffer</span>
+
+<span class="comment">// Function called every frame to advance the buffer</span>
+<span class="keyword">void</span> <span class="function">incIndex</span>() {
+    <span class="comment">// STEP 1: Increment total frame count</span>
+    framecount++;
+
+    <span class="comment">// STEP 2: Use modulo to wrap around</span>
+    <span class="comment">// Example: frame 61 % 60 = frame 1 (we loop back!)</span>
+    <span class="comment">// This is the "magic" of circular buffers</span>
+    framedelayoffset = framecount % framebufferLength;
+}</code></pre>
+
+        <div class="callout warning">
+            <div class="callout-title">🧠 Understanding Modulo Operator (%)</div>
+            <p>
+                The modulo operator <code>%</code> gives you the <em>remainder</em> after division:
+            </p>
+            <ul>
+                <li><code>0 % 60 = 0</code></li>
+                <li><code>59 % 60 = 59</code></li>
+                <li><code>60 % 60 = 0</code> ← wraps back to start!</li>
+                <li><code>61 % 60 = 1</code></li>
+                <li><code>119 % 60 = 59</code></li>
+            </ul>
+            <p>
+                This creates a repeating cycle of 0-59, perfect for our circular buffer.
+            </p>
+        </div>
+
+        <h3>Allocating Framebuffers</h3>
+
+<pre><code><span class="keyword">void</span> ofApp::<span class="function">fbDeclareAndAllocate</span>() {
+    <span class="comment">// STEP 1: Allocate main processing buffers</span>
+    <span class="comment">// These are single framebuffers for various stages</span>
+
+    framebuffer0.allocate(width, height);
+    framebuffer0.begin();
+    ofClear(<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">255</span>); <span class="comment">// Clear to black (RGBA)</span>
+    framebuffer0.end();
+
+    aspect_fix_fbo.allocate(width, height);
+    dry_framebuffer.allocate(width, height);
+    sharpenFramebuffer.allocate(width, height);
+
+    <span class="comment">// STEP 2: Allocate the circular buffer array</span>
+    <span class="comment">// Why loop? We need 60 separate framebuffers in GPU memory!</span>
+    <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; framebufferLength; i++) {
+        pastFrames[i].allocate(width, height);
+
+        <span class="comment">// Initialize each to black</span>
+        <span class="comment">// begin() = "start drawing to this FBO"</span>
+        <span class="comment">// end() = "stop drawing to this FBO"</span>
+        pastFrames[i].begin();
+        ofClear(<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">255</span>);
+        pastFrames[i].end();
+    }
+}</code></pre>
+
+        <div class="callout info">
+            <div class="callout-title">💾 Memory Usage Calculation</div>
+            <p>
+                Each framebuffer at 640x480 with RGBA (4 bytes per pixel) takes:
+            </p>
+            <p>
+                <code>640 × 480 × 4 bytes = 1,228,800 bytes ≈ 1.2 MB</code>
+            </p>
+            <p>
+                With 60 frames: <code>60 × 1.2 MB = 72 MB of GPU memory</code>
+            </p>
+            <p>
+                Plus additional buffers (dry, sharpen, etc.) brings total to ~80-90 MB. This is why the
+                Raspberry Pi needs sufficient GPU memory allocation in <code>config.txt</code>!
+            </p>
+        </div>
+
+        <h3>Reading from the Buffer with Delay</h3>
+
+<pre><code><span class="comment">// Calculate which frame to read for a delay effect</span>
+
+<span class="keyword">int</span> fb0_delayamount = <span class="number">30</span>; <span class="comment">// User-controlled delay (0-59 frames)</span>
+
+<span class="comment">// Complex formula explained step-by-step:</span>
+
+<span class="comment">// STEP 1: Start with current write position</span>
+<span class="keyword">int</span> current = framedelayoffset;
+
+<span class="comment">// STEP 2: Subtract the delay amount to go back in time</span>
+<span class="comment">// If delay = 30 and current = 40, we want frame 10</span>
+<span class="keyword">int</span> target = current - fb0_delayamount;
+
+<span class="comment">// STEP 3: Handle negative wraparound</span>
+<span class="comment">// If current = 10 and delay = 30, we get -20</span>
+<span class="comment">// We need to wrap to frame 40 (60 - 20)</span>
+d_delay = (abs(framedelayoffset - framebufferLength - fb0_delayamount) - <span class="number">1</span>) % framebufferLength;
+
+<span class="comment">// STEP 4: Use this index to read the delayed frame</span>
+shader_mixer.setUniformTexture(<span class="string">"fb"</span>, pastFrames[d_delay].getTexture(), <span class="number">1</span>);</code></pre>
+
+        <div class="callout success">
+            <div class="callout-title">🎯 Why This Pattern is Powerful</div>
+            <p>
+                Circular buffers are incredibly efficient:
+            </p>
+            <ul>
+                <li><strong>No memory allocation per frame</strong> - we reuse the same 60 slots</li>
+                <li><strong>Constant time access</strong> - reading any frame is O(1)</li>
+                <li><strong>No copying</strong> - frames stay in GPU memory</li>
+                <li><strong>Perfect for real-time</strong> - no garbage collection or delays</li>
+            </ul>
+            <p>
+                This is the same technique used in audio buffers, network packet queues, and video codecs.
+            </p>
+        </div>
+
+        <h2 id="shaders">4. 🎨 GPU Shaders & Video Effects</h2>
+
+        <h3>What are Shaders?</h3>
+
+        <div class="callout info">
+            <div class="callout-title">💡 Introduction to GPU Shaders</div>
+            <p>
+                <strong>Shaders</strong> are small programs that run on the GPU (Graphics Processing Unit), not the CPU.
+                They process pixels in <em>parallel</em> - potentially thousands at once!
+            </p>
+            <p><strong>Key Concepts:</strong></p>
+            <ul>
+                <li><strong>Vertex Shader</strong> - Processes vertex positions (we don't modify these much)</li>
+                <li><strong>Fragment Shader</strong> - Processes each pixel's color (this is where the magic happens)</li>
+                <li><strong>GLSL</strong> - OpenGL Shading Language (looks like C)</li>
+            </ul>
+            <p>
+                Think of it like this: Your CPU is a smart executive (good at complex decisions), while your GPU
+                is thousands of simple workers (great at doing the same task on lots of data).
+            </p>
+        </div>
+
+        <h3>The Vertex Shader (Simple Pass-through)</h3>
+
+<pre><code><span class="comment">// shadersES2/shader_mixer.vert</span>
+<span class="comment">// This runs once per vertex of the rectangle we're drawing</span>
+
+<span class="comment">// INPUT: Position and texture coordinates from openFrameworks</span>
+<span class="keyword">attribute</span> vec4 position;      <span class="comment">// Where is this vertex?</span>
+<span class="keyword">attribute</span> vec2 texcoord;     <span class="comment">// What part of the texture does it map to?</span>
+
+<span class="comment">// OUTPUT: Pass texture coords to fragment shader</span>
+<span class="keyword">varying</span> vec2 texCoordVarying;
+
+<span class="comment">// Matrix to transform from 3D space to screen space</span>
+<span class="keyword">uniform</span> mat4 modelViewProjectionMatrix;
+
+<span class="keyword">void</span> <span class="function">main</span>() {
+    <span class="comment">// Pass texture coordinates to fragment shader</span>
+    <span class="comment">// "varying" means this value is interpolated across the surface</span>
+    texCoordVarying = texcoord;
+
+    <span class="comment">// Transform vertex position to screen coordinates</span>
+    gl_Position = modelViewProjectionMatrix * position;
+}</code></pre>
+
+        <div class="callout warning">
+            <div class="callout-title">🔍 Understanding Varying Variables</div>
+            <p>
+                A <code>varying</code> variable is automatically interpolated across the surface. For a rectangle with corners at (0,0), (1,0), (0,1), (1,1):
+            </p>
+            <ul>
+                <li>Top-left corner: <code>texCoordVarying = (0, 0)</code></li>
+                <li>Top-right corner: <code>texCoordVarying = (1, 0)</code></li>
+                <li>Center: <code>texCoordVarying = (0.5, 0.5)</code></li>
+            </ul>
+            <p>
+                The GPU automatically calculates in-between values for every pixel!
+            </p>
+        </div>
+
+        <h3>The Fragment Shader (Where Magic Happens)</h3>
+
+        <p>The fragment shader processes EVERY PIXEL. At 640×480, that's 307,200 pixels per frame, 30 times per second = 9.2 million pixels per second!</p>
+
+<pre><code><span class="comment">// shadersES2/shader_mixer.frag (simplified)</span>
+
+<span class="keyword">precision</span> highp float; <span class="comment">// Use high precision (important for color accuracy)</span>
+
+<span class="comment">// INPUTS: Textures (video frames)</span>
+<span class="keyword">uniform sampler2D</span> tex0;           <span class="comment">// Live camera input</span>
+<span class="keyword">uniform sampler2D</span> fb;             <span class="comment">// Delayed feedback frame</span>
+<span class="keyword">uniform sampler2D</span> temporalFilter; <span class="comment">// Previous output frame</span>
+
+<span class="comment">// INPUTS: Control parameters (from CPU)</span>
+<span class="keyword">uniform float</span> fbMix;              <span class="comment">// Blend amount (0-1)</span>
+<span class="keyword">uniform float</span> fbHue;              <span class="comment">// Hue shift multiplier</span>
+<span class="keyword">uniform float</span> fbSaturation;       <span class="comment">// Saturation multiplier</span>
+<span class="keyword">uniform float</span> fbBright;           <span class="comment">// Brightness multiplier</span>
+<span class="keyword">uniform float</span> fbZDisplace;        <span class="comment">// Zoom amount</span>
+<span class="keyword">uniform float</span> fbXDisplace;        <span class="comment">// Horizontal shift</span>
+<span class="keyword">uniform float</span> fbYDisplace;        <span class="comment">// Vertical shift</span>
+<span class="keyword">uniform float</span> fbRotate;           <span class="comment">// Rotation angle</span>
+
+<span class="comment">// INPUT: Pixel position (from vertex shader)</span>
+<span class="keyword">varying</span> vec2 texCoordVarying;
+
+<span class="comment">// MAIN FUNCTION - runs for EVERY pixel!</span>
+<span class="keyword">void</span> <span class="function">main</span>() {
+    <span class="comment">// STEP 1: Sample the camera input at this pixel</span>
+    vec4 input1Color = texture2D(tex0, texCoordVarying);
+
+    <span class="comment">// STEP 2: Transform coordinates for feedback frame</span>
+    vec2 fbCoord = texCoordVarying;
+
+    <span class="comment">// STEP 3: Apply zoom (displacement in Z)</span>
+    fbCoord.x = fbZDisplace * (fbCoord.x - <span class="number">0.5</span>) + <span class="number">0.5</span>;
+    fbCoord.y = fbZDisplace * (fbCoord.y - <span class="number">0.5</span>) + <span class="number">0.5</span>;
+
+    <span class="comment">// STEP 4: Sample the delayed feedback frame</span>
+    vec4 fbColor = texture2D(fb, fbCoord);
+
+    <span class="comment">// STEP 5: Blend camera and feedback</span>
+    vec4 color = mix(input1Color, fbColor, fbMix);
+
+    <span class="comment">// STEP 6: Output final color for this pixel</span>
+    gl_FragColor = color;
+}</code></pre>
+
+        <div class="callout success">
+            <div class="callout-title">⚡ Why Shaders are Fast</div>
+            <p>
+                GPU parallelism is incredible. Consider this:
+            </p>
+            <ul>
+                <li><strong>CPU approach:</strong> Process 307,200 pixels one-by-one = SLOW</li>
+                <li><strong>GPU approach:</strong> Process ALL pixels simultaneously = FAST</li>
+            </ul>
+            <p>
+                The Raspberry Pi's GPU can process all pixels in about 1-2 milliseconds, leaving
+                31ms for everything else in a 30fps frame budget!
+            </p>
+        </div>
+
+        <h3>Color Space Conversion: RGB ↔ HSB</h3>
+
+        <p>
+            One of the most important techniques in video processing is converting between color spaces.
+            RGB (Red, Green, Blue) is how computers store colors, but HSB (Hue, Saturation, Brightness)
+            is more intuitive for artistic control.
+        </p>
+
+<pre><code><span class="comment">// Convert RGB to HSB (Hue, Saturation, Brightness)</span>
+<span class="comment">// WHY? HSB lets us modify colors more intuitively:</span>
+<span class="comment">// - Hue: the actual color (red, blue, green, etc.)</span>
+<span class="comment">// - Saturation: how vivid (0 = grayscale, 1 = full color)</span>
+<span class="comment">// - Brightness: how light (0 = black, 1 = full brightness)</span>
+
+vec3 <span class="function">rgb2hsb</span>(in vec3 c) {
+    <span class="comment">// Step 1: Find which RGB channel has max value</span>
+    <span class="comment">// This determines the hue sector (red, green, or blue zone)</span>
+    vec4 K = vec4(<span class="number">0.0</span>, -<span class="number">1.0</span> / <span class="number">3.0</span>, <span class="number">2.0</span> / <span class="number">3.0</span>, -<span class="number">1.0</span>);
+    vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
+    vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
+
+    <span class="comment">// Step 2: Calculate hue from the differences between channels</span>
+    float d = q.x - min(q.w, q.y);
+    float e = <span class="number">1.0e-10</span>; <span class="comment">// Tiny value to prevent division by zero</span>
+
+    <span class="comment">// Step 3: Return HSB values</span>
+    <span class="keyword">return</span> vec3(
+        abs(q.z + (q.w - q.y) / (<span class="number">6.0</span> * d + e)), <span class="comment">// Hue (0-1)</span>
+        d / (q.x + e),                             <span class="comment">// Saturation (0-1)</span>
+        q.x                                        <span class="comment">// Brightness (0-1)</span>
+    );
+}
+
+<span class="comment">// Convert back from HSB to RGB</span>
+vec3 <span class="function">hsb2rgb</span>(in vec3 c) {
+    <span class="comment">// Create rainbow gradient using fractional hue values</span>
+    vec4 K = vec4(<span class="number">1.0</span>, <span class="number">2.0</span> / <span class="number">3.0</span>, <span class="number">1.0</span> / <span class="number">3.0</span>, <span class="number">3.0</span>);
+    vec3 p = abs(fract(c.xxx + K.xyz) * <span class="number">6.0</span> - K.www);
+
+    <span class="comment">// Mix between white and hue based on saturation</span>
+    <span class="comment">// Then multiply by brightness</span>
+    <span class="keyword">return</span> c.z * mix(K.xxx, clamp(p - K.xxx, <span class="number">0.0</span>, <span class="number">1.0</span>), c.y);
+}</code></pre>
+
+        <div class="callout info">
+            <div class="callout-title">🎨 Why HSB for Effects?</div>
+            <p><strong>Example: Making a color more vibrant</strong></p>
+            <ul>
+                <li><strong>RGB approach:</strong> Increase each channel? But by how much? R+50, G+30, B-20? It's confusing!</li>
+                <li><strong>HSB approach:</strong> Just multiply saturation by 1.5. Simple!</li>
+            </ul>
+            <p><strong>Example: Shifting all colors</strong></p>
+            <ul>
+                <li><strong>RGB approach:</strong> Complex matrix multiplication</li>
+                <li><strong>HSB approach:</strong> Just add to hue value (hue = hue + 0.1). Red becomes orange!</li>
+            </ul>
+        </div>
+
+        <h3>The Complete Shader Pipeline</h3>
+
+<pre><code><span class="keyword">void</span> <span class="function">main</span>() {
+    <span class="comment">/********** STEP 1: SAMPLE INPUT **********/</span>
+    vec4 input1Color = texture2D(tex0, texCoordVarying);
+    vec3 input1ColorHsb = rgb2hsb(input1Color.rgb);
+
+    <span class="comment">// Store brightness for video-reactive effects</span>
+    <span class="comment">// VVV = how bright this pixel is (0-1)</span>
+    float VVV = input1ColorHsb.z;
+
+    <span class="comment">/********** STEP 2: COORDINATE TRANSFORMATION **********/</span>
+    <span class="comment">// Start with current pixel position (0-1 range)</span>
+    vec2 fbCoord = vec2(texCoordVarying.x - <span class="number">0.5</span>, texCoordVarying.y - <span class="number">0.5</span>);
+
+    <span class="comment">// Apply zoom (larger fbZDisplace = zoom in)</span>
+    fbCoord.x = fbZDisplace * fbCoord.x * (<span class="number">1.0</span> + vZ * VVV);
+    fbCoord.y = fbZDisplace * fbCoord.y * (<span class="number">1.0</span> + vZ * VVV);
+
+    <span class="comment">// Apply horizontal/vertical mirror effects</span>
+    <span class="keyword">if</span> (horizontalMirror == <span class="number">1</span>) {
+        <span class="keyword">if</span> (fbCoord.x > <span class="number">0.0</span>) {
+            fbCoord.x = -<span class="number">1.0</span> * fbCoord.x; <span class="comment">// Flip right side to left</span>
+        }
+    }
+
+    <span class="comment">// Apply displacement (pan effect)</span>
+    fbCoord = vec2(
+        fbCoord.x + fbXDisplace + (vX * VVV) + <span class="number">0.5</span>,
+        fbCoord.y + fbYDisplace + (vY * VVV) + <span class="number">0.5</span>
+    );
+
+    <span class="comment">// Apply rotation</span>
+    fbCoord = rotate(fbCoord, fbRotate + (vRotate * VVV));
+
+    <span class="comment">/********** STEP 3: HANDLE COORDINATE WRAPPING **********/</span>
+    <span class="keyword">if</span> (toroidSwitch == <span class="number">1</span>) {
+        <span class="comment">// Toroidal wrap: coordinates wrap around like a donut</span>
+        <span class="comment">// If you go off the right edge, you appear on the left</span>
+        fbCoord = fract(fbCoord); <span class="comment">// Keep only fractional part (0-1)</span>
+    }
+
+    <span class="comment">/********** STEP 4: SAMPLE FEEDBACK FRAME **********/</span>
+    vec4 fbColor = texture2D(fb, fbCoord);
+
+    <span class="comment">// Clamp out-of-bounds to black (prevents edge artifacts)</span>
+    <span class="keyword">if</span> (toroidSwitch == <span class="number">0</span> && mirrorSwitch == <span class="number">0</span>) {
+        <span class="keyword">if</span> (fbCoord.x > <span class="number">1.0</span> || fbCoord.y > <span class="number">1.0</span> ||
+            fbCoord.x < <span class="number">0.0</span> || fbCoord.y < <span class="number">0.0</span>) {
+            fbColor = vec4(<span class="number">0.0</span>);
+        }
+    }
+
+    <span class="comment">/********** STEP 5: COLOR MANIPULATION IN HSB SPACE **********/</span>
+    vec3 fbColorHsb = rgb2hsb(fbColor.rgb);
+
+    <span class="comment">// Modify hue (color rotation + chaotic oscillation)</span>
+    fbColorHsb.x = abs(fbColorHsb.x * fbHue * (<span class="number">1.0</span> + vHue * VVV) +
+                      (fbHuexLfo + vHuexLfo * VVV) * sin(fbColorHsb.x / <span class="number">3.14</span>));
+    fbColorHsb.x = fract(mod(fbColorHsb.x, fbHuexMod + vHuexMod * VVV) +
+                        fbHuexOff + vHuexOff * VVV);
+
+    <span class="comment">// Modify saturation and brightness</span>
+    fbColorHsb.y = clamp(fbColorHsb.y * fbSaturation * (<span class="number">1.0</span> + vSat * VVV), <span class="number">0.0</span>, <span class="number">1.0</span>);
+    fbColorHsb.z = clamp(fbColorHsb.z * fbBright * (<span class="number">1.0</span> + vBright * VVV), <span class="number">0.0</span>, <span class="number">1.0</span>);
+
+    <span class="comment">// Apply invert switches</span>
+    <span class="keyword">if</span> (brightInvert == <span class="number">1</span>) { fbColorHsb.z = <span class="number">1.0</span> - fbColorHsb.z; }
+    <span class="keyword">if</span> (saturationInvert == <span class="number">1</span>) { fbColorHsb.y = <span class="number">1.0</span> - fbColorHsb.y; }
+    <span class="keyword">if</span> (hueInvert == <span class="number">1</span>) { fbColorHsb.x = fract(abs(<span class="number">1.0</span> - fbColorHsb.x)); }
+
+    <span class="comment">// Convert back to RGB</span>
+    fbColor = vec4(hsb2rgb(fbColorHsb), <span class="number">1.0</span>);
+
+    <span class="comment">/********** STEP 6: TEMPORAL FILTERING (FEEDBACK) **********/</span>
+    vec4 temporalFilterColor = texture2D(temporalFilter, texCoordVarying);
+
+    <span class="comment">// Boost the resonance (makes feedback more intense)</span>
+    vec3 temporalFilterColorHsb = rgb2hsb(temporalFilterColor.rgb);
+    temporalFilterColorHsb.z = clamp(
+        temporalFilterColorHsb.z * (<span class="number">1.0</span> + <span class="number">0.5</span> * temporalFilterResonance *
+        (<span class="number">1.0</span> + vFb1X * VVV)), <span class="number">0.0</span>, <span class="number">1.0</span>);
+    temporalFilterColor = vec4(hsb2rgb(temporalFilterColorHsb), <span class="number">1.0</span>);
+
+    <span class="comment">/********** STEP 7: FINAL MIXING **********/</span>
+    <span class="comment">// Mix camera input with processed feedback</span>
+    vec4 color = mix(input1Color, fbColor, fbMix + (vMix * VVV));
+
+    <span class="comment">// Luminance keying (like green screen, but based on brightness)</span>
+    <span class="keyword">if</span> (lumakeyInvertSwitch == <span class="number">0</span>) {
+        <span class="keyword">if</span> (VVV < lumakey + (vLumakey * VVV)) {
+            color = fbColor; <span class="comment">// Dark pixels show feedback only</span>
+        }
+    }
+
+    <span class="comment">// Add temporal filter into final mix</span>
+    color = mix(color, temporalFilterColor,
+                temporalFilterMix + (vtemporalFilterMix * VVV));
+
+    <span class="comment">// OUTPUT: Set this pixel's color</span>
+    gl_FragColor = color;
+}</code></pre>
+
+        <div class="callout success">
+            <div class="callout-title">🎯 Key Shader Concepts Recap</div>
+            <ol>
+                <li><strong>Coordinate Transformation:</strong> We manipulate WHERE we sample from (zoom, rotate, displace)</li>
+                <li><strong>Color Manipulation:</strong> We manipulate WHAT colors we see (HSB adjustments)</li>
+                <li><strong>Mixing:</strong> We blend multiple sources (camera + feedback + temporal filter)</li>
+                <li><strong>Video Reactivity:</strong> Using input brightness (VVV) to modulate all effects</li>
+            </ol>
+        </div>
+
+        <h3>The Sharpen Shader</h3>
+
+        <p>The sharpen shader uses a convolution kernel to enhance edges.</p>
+
+<pre><code><span class="comment">// shadersES2/shaderSharpen.frag</span>
+
+<span class="keyword">void</span> <span class="function">main</span>() {
+    <span class="comment">/********** STEP 1: SAMPLE NEIGHBORING PIXELS **********/</span>
+    <span class="comment">// Sample 4 diagonal neighbors (corners of a square)</span>
+    float X = <span class="number">2.0</span> * <span class="number">0.0015625</span>; <span class="comment">// Offset in X direction</span>
+    float Y = <span class="number">2.0</span> * <span class="number">0.0020833</span>; <span class="comment">// Offset in Y direction</span>
+
+    <span class="comment">// Get brightness of 4 neighbors and average them</span>
+    float colorSharpenBright =
+        rgb2hsb(texture2D(tex0, texCoordVarying + vec2(X, Y)).rgb).z +
+        rgb2hsb(texture2D(tex0, texCoordVarying + vec2(-X, Y)).rgb).z +
+        rgb2hsb(texture2D(tex0, texCoordVarying + vec2(-X, -Y)).rgb).z +
+        rgb2hsb(texture2D(tex0, texCoordVarying + vec2(X, -Y)).rgb).z;
+
+    colorSharpenBright = colorSharpenBright * <span class="number">0.125</span>; <span class="comment">// Average (4 samples)</span>
+
+    <span class="comment">/********** STEP 2: SHARPEN LOGIC **********/</span>
+    <span class="comment">// Sharpening algorithm:</span>
+    <span class="comment">// - If center pixel is brighter than neighbors: make it brighter</span>
+    <span class="comment">// - If center pixel is darker than neighbors: make it darker</span>
+    <span class="comment">// This enhances edges!</span>
+
+    vec4 ogColor = texture2D(tex0, texCoordVarying);
+    vec3 ogColorHSB = rgb2hsb(ogColor.rgb);
+    float VVV = ogColorHSB.z;
+
+    <span class="comment">// Subtract neighbor average (creates edge detection)</span>
+    ogColorHSB.z -= sharpenAmount * colorSharpenBright +
+                    (colorSharpenBright * vSharpenAmount * VVV);
+
+    <span class="comment">// Boost overall brightness to compensate</span>
+    <span class="keyword">if</span> (sharpenAmount > <span class="number">0.0</span>) {
+        ogColorHSB.z *= (<span class="number">1.0</span> + sharpenAmount * <span class="number">0.45</span> + <span class="number">0.45</span> * (vSharpenAmount * VVV));
+        ogColorHSB.x *= (<span class="number">1.0</span> + sharpenAmount * <span class="number">0.25</span> + <span class="number">0.25</span> * (vSharpenAmount * VVV));
+    }
+
+    <span class="comment">// Convert back and output</span>
+    gl_FragColor = vec4(hsb2rgb(ogColorHSB), <span class="number">1.0</span>);
+}</code></pre>
+
+        <div class="callout info">
+            <div class="callout-title">🔍 How Sharpening Works</div>
+            <p>
+                Sharpening is based on <strong>high-pass filtering</strong>:
+            </p>
+            <ol>
+                <li>Sample the pixel's neighbors</li>
+                <li>Calculate the average</li>
+                <li>Subtract the average from the center pixel</li>
+                <li>This removes low-frequency (smooth) information, leaving only edges</li>
+                <li>Add this edge information back to the original</li>
+            </ol>
+            <p>
+                Result: Edges are enhanced, smooth areas remain smooth.
+            </p>
+        </div>
+
+        <h2 id="midi">5. 🎹 MIDI Control System</h2>
+
+        <h3>What is MIDI?</h3>
+
+        <div class="callout info">
+            <div class="callout-title">💡 MIDI Explained</div>
+            <p>
+                <strong>MIDI (Musical Instrument Digital Interface)</strong> is a protocol for sending control messages.
+                Originally designed for synthesizers, it's perfect for live control of visual effects.
+            </p>
+            <p><strong>Key concepts:</strong></p>
+            <ul>
+                <li><strong>Control Change (CC):</strong> A knob or slider sends values 0-127</li>
+                <li><strong>Note On/Off:</strong> Keys send note presses (we don't use these here)</li>
+                <li><strong>Channels:</strong> 16 separate channels for different controllers</li>
+            </ul>
+            <p>
+                Think of MIDI like a remote control: pressing buttons sends numbers to the application.
+            </p>
+        </div>
+
+        <h3>MIDI Setup</h3>
+
+<pre><code><span class="comment">// Initialize MIDI system</span>
+<span class="keyword">void</span> ofApp::<span class="function">midiSetup</span>() {
+    <span class="comment">// STEP 1: List all connected MIDI devices (for debugging)</span>
+    midiIn.listInPorts();
+
+    <span class="comment">// STEP 2: Open MIDI port</span>
+    <span class="comment">// Port 1 is usually the first MIDI controller</span>
+    <span class="comment">// You may need to change this number for your setup</span>
+    midiIn.openPort(<span class="number">1</span>);
+
+    <span class="comment">// STEP 3: Configure what messages we want to receive</span>
+    <span class="comment">// ignoreTypes(sysex, timing, activeSense)</span>
+    <span class="comment">// We want ALL messages, so set all to false</span>
+    midiIn.ignoreTypes(<span class="keyword">false</span>, <span class="keyword">false</span>, <span class="keyword">false</span>);
+
+    <span class="comment">// STEP 4: Register this class as a listener</span>
+    <span class="comment">// When MIDI messages arrive, newMidiMessage() will be called</span>
+    midiIn.addListener(<span class="keyword">this</span>);
+
+    <span class="comment">// STEP 5: Print messages to console (helpful for debugging)</span>
+    midiIn.setVerbose(<span class="keyword">true</span>);
+}</code></pre>
+
+        <h3>MIDI Message Processing</h3>
+
+<pre><code><span class="comment">// This function is called automatically when a MIDI message arrives</span>
+<span class="comment">// It's a CALLBACK - we don't call it, the MIDI system does</span>
+
+<span class="keyword">void</span> ofApp::<span class="function">newMidiMessage</span>(ofxMidiMessage& msg) {
+    <span class="comment">// Add message to queue</span>
+    midiMessages.push_back(msg);
+
+    <span class="comment">// Keep only recent messages (prevent memory overflow)</span>
+    <span class="keyword">while</span> (midiMessages.size() > <span class="number">2</span>) {
+        midiMessages.erase(midiMessages.begin());
+    }
+}</code></pre>
+
+        <div class="callout warning">
+            <div class="callout-title">⚠️ Callback Functions</div>
+            <p>
+                A <strong>callback</strong> is a function that YOU write but SOMEONE ELSE calls.
+                In this case, the ofxMidi library calls <code>newMidiMessage()</code> when data arrives.
+            </p>
+            <p>
+                This is an <strong>event-driven</strong> pattern. Instead of constantly checking "Is there MIDI data?",
+                we say "Call this function WHEN there's MIDI data."
+            </p>
+            <p>
+                Common in: GUI systems (onClick), network code (onDataReceived), audio (onAudioBuffer).
+            </p>
+        </div>
+
+        <h3>MIDI Control Mapping</h3>
+
+        <p>The real work happens in <code>midibiz()</code>, called every frame to process MIDI messages:</p>
+
+<pre><code><span class="comment">// Process all pending MIDI messages</span>
+<span class="keyword">void</span> ofApp::<span class="function">midibiz</span>() {
+    <span class="comment">// Loop through all messages received since last frame</span>
+    <span class="keyword">for</span> (<span class="keyword">unsigned int</span> i = <span class="number">0</span>; i < midiMessages.size(); ++i) {
+        ofxMidiMessage& message = midiMessages[i];
+
+        <span class="comment">// We only care about Control Change messages</span>
+        <span class="keyword">if</span> (message.status == MIDI_CONTROL_CHANGE) {
+
+            <span class="comment">/********** EXAMPLE: Video Reactive Switch **********/</span>
+            <span class="keyword">if</span> (message.control == <span class="number">39</span>) { <span class="comment">// CC#39 on controller</span>
+                <span class="keyword">if</span> (message.value == <span class="number">127</span>) {
+                    videoReactiveSwitch = <span class="number">1</span>;    <span class="comment">// Button pressed</span>
+                    p_lock_0_switch = <span class="number">0</span>;         <span class="comment">// Disable parameter locks</span>
+                }
+                <span class="keyword">if</span> (message.value == <span class="number">0</span>) {
+                    videoReactiveSwitch = <span class="number">0</span>;    <span class="comment">// Button released</span>
+                    p_lock_0_switch = <span class="number">1</span>;         <span class="comment">// Enable parameter locks</span>
+                }
+            }
+
+            <span class="comment">/********** EXAMPLE: Continuous Control with Latching **********/</span>
+            <span class="comment">// This implements "soft takeover" - prevents parameter jumping</span>
+            <span class="keyword">if</span> (message.control == <span class="number">16</span>) { <span class="comment">// CC#16 controls lumakey</span>
+
+                <span class="comment">// Convert MIDI value (0-127) to normalized float (0.0-1.0)</span>
+                <span class="keyword">float</span> normalizedValue = message.value / <span class="number">127.0f</span>;
+
+                <span class="comment">// SOFT TAKEOVER LOGIC:</span>
+                <span class="comment">// Only respond when knob value is close to current value</span>
+                <span class="comment">// This prevents sudden jumps when switching between controls</span>
+
+                <span class="keyword">if</span> (audioReactiveControlSwitch == <span class="number">0</span>) {
+                    <span class="comment">// Normal MIDI control mode</span>
+
+                    <span class="keyword">if</span> (p_lock_0_switch == <span class="number">1</span>) {
+                        <span class="comment">// Check if knob is close to current value</span>
+                        <span class="keyword">float</span> currentValue = p_lock[<span class="number">0</span>][p_lock_increment];
+                        <span class="keyword">float</span> difference = abs(normalizedValue - currentValue);
+
+                        <span class="keyword">if</span> (difference < CONTROL_THRESHOLD) {
+                            <span class="comment">// We're close! Enable control (latch on)</span>
+                            midiActiveFloat[<span class="number">0</span>] = <span class="number">1</span>;
+                        }
+
+                        <span class="comment">// Only update if latched</span>
+                        <span class="keyword">if</span> (midiActiveFloat[<span class="number">0</span>] == <span class="number">1</span>) {
+                            p_lock[<span class="number">0</span>][p_lock_increment] = normalizedValue;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}</code></pre>
+
+        <div class="callout success">
+            <div class="callout-title">🎯 Soft Takeover Explained</div>
+            <p>
+                Imagine you have a knob on your MIDI controller that controls brightness:
+            </p>
+            <ol>
+                <li>Knob is at 50%, brightness is at 50%</li>
+                <li>You switch to control a different parameter (saturation)</li>
+                <li>You turn the knob to 80% for saturation</li>
+                <li>You switch back to brightness control</li>
+                <li><strong>Without soft takeover:</strong> Brightness jumps from 50% to 80% instantly!</li>
+                <li><strong>With soft takeover:</strong> Nothing happens until you move the knob to ~50%, then it "latches" and responds smoothly</li>
+            </ol>
+            <p>
+                This prevents jarring jumps in live performance!
+            </p>
+        </div>
+
+        <h3>MIDI Value Transformation</h3>
+
+<pre><code><span class="comment">// MIDI values are 0-127 (7-bit integers)</span>
+<span class="comment">// We need to convert these to useful ranges</span>
+
+<span class="comment">// PATTERN 1: Unipolar (0.0 to 1.0)</span>
+<span class="keyword">float</span> unipolar = message.value / <span class="number">127.0f</span>;
+
+<span class="comment">// PATTERN 2: Bipolar (-1.0 to 1.0)</span>
+<span class="comment">// Uses "MIDI_MAGIC" constant (63.5 = middle of 0-127)</span>
+<span class="keyword">#define</span> MIDI_MAGIC <span class="number">63.50f</span>
+<span class="keyword">float</span> bipolar = (message.value - MIDI_MAGIC) / MIDI_MAGIC;
+
+<span class="comment">// Examples:</span>
+<span class="comment">// value = 0   → bipolar = -1.0 (far left)</span>
+<span class="comment">// value = 63  → bipolar = -0.01 (almost center)</span>
+<span class="comment">// value = 64  → bipolar = 0.01 (almost center)</span>
+<span class="comment">// value = 127 → bipolar = 1.0 (far right)</span></code></pre>
+
+        <h2 id="audio">6. 🔊 Audio Reactivity & FFT</h2>
+
+        <h3>What is FFT?</h3>
+
+        <div class="callout info">
+            <div class="callout-title">💡 Fast Fourier Transform (FFT) Explained</div>
+            <p>
+                <strong>FFT</strong> converts audio from the <em>time domain</em> (amplitude over time) to the
+                <em>frequency domain</em> (which frequencies are present).
+            </p>
+            <p><strong>Simple analogy:</strong></p>
+            <ul>
+                <li><strong>Time domain:</strong> "The audio is loud at 0.5 seconds"</li>
+                <li><strong>Frequency domain:</strong> "There's a lot of bass (100Hz) and some treble (8kHz)"</li>
+            </ul>
+            <p>
+                We use this to make visuals react to bass, mids, and treble separately!
+            </p>
+        </div>
+
+        <h3>FFT Setup and Processing</h3>
+
+<pre><code><span class="comment">// In setup()</span>
+fft.setup();
+fft.setNormalize(<span class="keyword">false</span>); <span class="comment">// We'll manually normalize</span>
+
+<span class="comment">// In update() - called every frame</span>
+fft.update(); <span class="comment">// Analyze the latest audio buffer</span>
+
+<span class="comment">// Get frequency bands</span>
+<span class="keyword">void</span> ofApp::<span class="function">fftAssignValues</span>() {
+    <span class="comment">/********** STEP 1: GET RAW VALUES **********/</span>
+    fftLow = fft.getLowVal();    <span class="comment">// Bass frequencies (20-250 Hz)</span>
+    fftMid = fft.getMidVal();    <span class="comment">// Mid frequencies (250-4000 Hz)</span>
+    fftHigh = fft.getHighVal();  <span class="comment">// High frequencies (4000-20000 Hz)</span>
+
+    <span class="comment">/********** STEP 2: CLAMP TO RANGE **********/</span>
+    <span class="comment">// Limit to 1.0 - range to prevent crazy values</span>
+    <span class="comment">// "range" is typically 200, so we're working with 1-200</span>
+    fftLow = ofClamp(fftLow, <span class="number">1.0f</span>, range);
+    fftMid = ofClamp(fftMid, <span class="number">1.0f</span>, range);
+    fftHigh = ofClamp(fftHigh, <span class="number">1.0f</span>, range);
+
+    <span class="comment">/********** STEP 3: NORMALIZE TO 0-1 **********/</span>
+    fftLow = fftLow / range;
+    fftMid = fftMid / range;
+    fftHigh = fftHigh / range;
+
+    <span class="comment">/********** STEP 4: APPLY SMOOTHING **********/</span>
+    <span class="comment">// Without smoothing, values jump around too much</span>
+    <span class="comment">// This creates a "moving average" effect</span>
+
+    <span class="comment">// Formula: new = (current * rate) + (previous * (1 - rate))</span>
+    <span class="comment">// smoothing_rate = 0.8 means 80% new, 20% old</span>
+    low_value_smoothed = fftLow * smoothing_rate +
+                         (<span class="number">1.0f</span> - smoothing_rate) * low_value_smoothed;
+
+    mid_value_smoothed = fftMid * smoothing_rate +
+                         (<span class="number">1.0f</span> - smoothing_rate) * mid_value_smoothed;
+
+    high_value_smoothed = fftHigh * smoothing_rate +
+                          (<span class="number">1.0f</span> - smoothing_rate) * high_value_smoothed;
+}</code></pre>
+
+        <div class="callout warning">
+            <div class="callout-title">🧮 Smoothing Math Breakdown</div>
+            <p>
+                Let's trace through an example with smoothing_rate = 0.8:
+            </p>
+            <ol>
+                <li><strong>Frame 1:</strong> fftLow = 0.5, low_value_smoothed = 0 (start)<br/>
+                    new = (0.5 × 0.8) + (0 × 0.2) = 0.4</li>
+                <li><strong>Frame 2:</strong> fftLow = 0.8, low_value_smoothed = 0.4<br/>
+                    new = (0.8 × 0.8) + (0.4 × 0.2) = 0.72</li>
+                <li><strong>Frame 3:</strong> fftLow = 0.9, low_value_smoothed = 0.72<br/>
+                    new = (0.9 × 0.8) + (0.72 × 0.2) = 0.864</li>
+            </ol>
+            <p>
+                The value gradually "catches up" to the target, creating smooth transitions.
+            </p>
+        </div>
+
+        <h3>Using FFT Values in Effects</h3>
+
+<pre><code><span class="comment">// Audio-reactive parameters have three components:</span>
+<span class="comment">// 1. Base value (set by MIDI or keyboard)</span>
+<span class="comment">// 2. Audio modulation (FFT values)</span>
+<span class="comment">// 3. Scaling constant</span>
+
+<span class="comment">// Example: Hue parameter with audio reactivity</span>
+
+d_hue = fv * (<span class="number">1.0f</span> + c_hue * p_lock_smoothed[<span class="number">2</span>]) + <span class="number">4.0f</span> * (
+    lowC3 * low_value_smoothed +
+    midC3 * mid_value_smoothed +
+    highC3 * high_value_smoothed
+);
+
+<span class="comment">// Breaking this down:</span>
+<span class="comment">// 1. fv = base hue value (default 1.0)</span>
+<span class="comment">// 2. c_hue * p_lock_smoothed[2] = automation modulation</span>
+<span class="comment">// 3. lowC3/midC3/highC3 = audio reactive amounts per frequency band</span>
+<span class="comment">// 4. The user controls which frequency bands affect hue!</span>
+
+<span class="comment">// If lowC3 = 1.0 and others = 0, only bass affects hue</span>
+<span class="comment">// If all = 0.33, all frequencies equally affect hue</span></code></pre>
+
+        <div class="callout success">
+            <div class="callout-title">🎼 Creative Audio Mapping</div>
+            <p><strong>Common mapping strategies:</strong></p>
+            <ul>
+                <li><strong>Bass → Zoom:</strong> Make the image pulse with the kick drum</li>
+                <li><strong>Mids → Hue:</strong> Vocals shift the colors</li>
+                <li><strong>Highs → Sharpen:</strong> Hi-hats create crispy details</li>
+                <li><strong>Bass → Mix:</strong> Heavy bass brings in more feedback</li>
+            </ul>
+            <p>
+                Experiment! There are no rules, just what looks and feels good.
+            </p>
+        </div>
+
+        <h2 id="plocks">7. 🔒 Parameter Locks (Automation)</h2>
+
+        <h3>What are Parameter Locks?</h3>
+
+        <div class="callout info">
+            <div class="callout-title">💡 Parameter Lock Concept</div>
+            <p>
+                <strong>Parameter Locks (P-Locks)</strong> are a way to record and playback automation.
+                Inspired by Elektron music hardware, they let you:
+            </p>
+            <ol>
+                <li>Start recording</li>
+                <li>Move your MIDI controllers</li>
+                <li>Stop recording</li>
+                <li>The movement loops automatically!</li>
+            </ol>
+            <p>
+                This creates evolving, generative visuals without constant manual control.
+            </p>
+        </div>
+
+        <h3>P-Lock Data Structure</h3>
+
+<pre><code><span class="comment">// P-Lock configuration</span>
+<span class="keyword">const int</span> p_lock_number = <span class="number">17</span>;   <span class="comment">// 17 parameters can be automated</span>
+<span class="keyword">const int</span> p_lock_size = <span class="number">240</span>;     <span class="comment">// 240 steps per loop (8 seconds @ 30fps)</span>
+
+<span class="comment">// 2D array: [which_parameter][time_step]</span>
+<span class="keyword">float</span> p_lock[p_lock_number][p_lock_size];
+
+<span class="comment">// Smoothed output values (what we actually use)</span>
+<span class="keyword">float</span> p_lock_smoothed[p_lock_number];
+
+<span class="comment">// Current position in the loop</span>
+<span class="keyword">int</span> p_lock_increment = <span class="number">0</span>;
+
+<span class="comment">// Smoothing amount (0 = no smoothing, 1 = max smoothing)</span>
+<span class="keyword">float</span> p_lock_smooth = <span class="number">0.5</span>;
+
+<span class="comment">// Is recording enabled?</span>
+<span class="keyword">bool</span> p_lock_switch = <span class="number">0</span>;</code></pre>
+
+        <h3>P-Lock Initialization</h3>
+
+<pre><code><span class="comment">// Clear all P-Lock data (called at startup)</span>
+<span class="keyword">void</span> ofApp::<span class="function">p_lockClear</span>() {
+    <span class="comment">// STEP 1: Zero out the entire 2D array</span>
+    <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i < p_lock_number; i++) {       <span class="comment">// For each parameter</span>
+        <span class="keyword">for</span> (<span class="keyword">int</span> j = <span class="number">0</span>; j < p_lock_size; j++) {     <span class="comment">// For each time step</span>
+            p_lock[i][j] = <span class="number">0</span>;
+        }
+    }
+
+    <span class="comment">// STEP 2: Zero smoothed outputs</span>
+    <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i < p_lock_number; i++) {
+        p_lock_smoothed[i] = <span class="number">0</span>;
+    }
+}</code></pre>
+
+        <h3>P-Lock Recording and Playback</h3>
+
+<pre><code><span class="comment">// Called every frame to update P-Lock playback</span>
+<span class="keyword">void</span> ofApp::<span class="function">p_lockUpdate</span>() {
+    <span class="comment">/********** STEP 1: READ AND SMOOTH ALL PARAMETERS **********/</span>
+    <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i < p_lock_number; i++) {
+        <span class="comment">// Read the value at current time step</span>
+        <span class="keyword">float</span> raw_value = p_lock[i][p_lock_increment];
+
+        <span class="comment">// Apply exponential smoothing</span>
+        <span class="comment">// This prevents stair-stepping between recorded values</span>
+        p_lock_smoothed[i] = raw_value * (<span class="number">1.0f</span> - p_lock_smooth) +
+                             p_lock_smoothed[i] * p_lock_smooth;
+
+        <span class="comment">// Kill tiny values to prevent numerical drift</span>
+        <span class="keyword">if</span> (abs(p_lock_smoothed[i]) < <span class="number">0.05</span>) {
+            p_lock_smoothed[i] = <span class="number">0</span>;
+        }
+    }
+}
+
+<span class="comment">// In draw() - advance the playback position</span>
+<span class="keyword">if</span> (p_lock_switch == <span class="number">1</span>) {
+    p_lock_increment++;
+    p_lock_increment = p_lock_increment % p_lock_size; <span class="comment">// Wrap around</span>
+}</code></pre>
+
+        <div class="callout warning">
+            <div class="callout-title">🎬 Recording Process</div>
+            <p><strong>When user presses "Record P-Lock" button:</strong></p>
+            <ol>
+                <li><code>p_lock_switch</code> is enabled</li>
+                <li>All current parameter values are copied to ALL time steps (freeze frame)</li>
+                <li>As user moves MIDI controllers, values are written to current time step</li>
+                <li><code>p_lock_increment</code> advances each frame</li>
+                <li>After 240 steps, it loops back to step 0</li>
+                <li>The recorded motion plays back indefinitely!</li>
+            </ol>
+        </div>
+
+<pre><code><span class="comment">// When P-Lock recording is enabled (MIDI button press)</span>
+<span class="keyword">if</span> (message.control == <span class="number">55</span>) { <span class="comment">// P-Lock record button</span>
+    <span class="keyword">if</span> (message.value == <span class="number">127</span>) { <span class="comment">// Button pressed</span>
+        p_lock_switch = <span class="number">1</span>; <span class="comment">// Enable recording</span>
+
+        <span class="comment">// FREEZE FRAME: Copy current values to all steps</span>
+        <span class="comment">// This gives us a baseline to record over</span>
+        <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i < p_lock_number; i++) {
+            p_lock_smoothed[i] = <span class="number">0</span>; <span class="comment">// Reset smoothed values</span>
+
+            <span class="keyword">for</span> (<span class="keyword">int</span> j = <span class="number">0</span>; j < p_lock_size; j++) {
+                <span class="comment">// Copy current value to every time step</span>
+                p_lock[i][j] = p_lock[i][p_lock_increment];
+            }
+        }
+    }
+
+    <span class="keyword">if</span> (message.value == <span class="number">0</span>) { <span class="comment">// Button released</span>
+        p_lock_switch = <span class="number">0</span>; <span class="comment">// Stop recording, start playback</span>
+    }
+}</code></pre>
+
+        <h3>Using P-Lock Values</h3>
+
+<pre><code><span class="comment">// P-Lock values are used in the parameter assignment function</span>
+
+<span class="comment">// Example: Zoom parameter</span>
+d_z = az * (<span class="number">1.0f</span> + c_z * p_lock_smoothed[<span class="number">10</span>]) + <span class="number">4.0f</span> * (
+    c_z * (lowC11 * low_value_smoothed +
+           midC11 * mid_value_smoothed +
+           highC11 * high_value_smoothed)
+);
+
+<span class="comment">// Breaking down the formula:</span>
+<span class="comment">// 1. az = base zoom value (default 1.0 = no zoom)</span>
+<span class="comment">// 2. p_lock_smoothed[10] = automated zoom from P-Lock</span>
+<span class="comment">// 3. c_z = scaling constant for zoom (0.05)</span>
+<span class="comment">// 4. lowC11/midC11/highC11 = audio reactive amounts</span>
+
+<span class="comment">// If P-Lock recorded zoom increasing from 0 to 1 over 8 seconds,</span>
+<span class="comment">// the effect will continuously zoom in and loop!</span></code></pre>
+
+        <div class="callout success">
+            <div class="callout-title">🎨 Creative Use Cases</div>
+            <ul>
+                <li><strong>Evolving Colors:</strong> Record slow hue shifts for psychedelic effects</li>
+                <li><strong>Breathing Effect:</strong> Record zoom in/out for pulsing visuals</li>
+                <li><strong>Scanning:</strong> Record X/Y displacement for automatic panning</li>
+                <li><strong>Complex Patterns:</strong> Record multiple parameters simultaneously for intricate motion</li>
+            </ul>
+        </div>
+
+        <h2 id="render">8. 🎬 The Render Pipeline</h2>
+
+        <h3>Frame Processing Flow</h3>
+
+        <div class="diagram">
+            <h4>Complete Rendering Pipeline</h4>
+            <pre style="text-align: left; padding: 10px;">
+1. update()
+   ├─ fft.update()                    (Analyze audio)
+   ├─ cam1.update()                   (Grab camera frame)
+   ├─ midibiz()                       (Process MIDI)
+   └─ p_lockUpdate()                  (Update automation)
+
+2. draw()
+   ├─ fftAssignValues()               (Get FFT bands)
+   ├─ parametersAssign()              (Calculate all parameters)
+   │
+   ├─ framebuffer0.begin()
+   │  ├─ Draw camera input
+   │  ├─ shader_mixer.begin()
+   │  │  ├─ Set uniforms (parameters)
+   │  │  ├─ Set textures (delayed frames)
+   │  │  └─ GPU processes every pixel
+   │  └─ shader_mixer.end()
+   │  └─ framebuffer0.end()
+   │
+   ├─ sharpenFramebuffer.begin()
+   │  ├─ Draw framebuffer0
+   │  ├─ shaderSharpen.begin()
+   │  │  └─ GPU sharpens image
+   │  └─ shaderSharpen.end()
+   │  └─ sharpenFramebuffer.end()
+   │
+   ├─ sharpenFramebuffer.draw()       (Display to screen)
+   │
+   ├─ pastFrames[N].begin()
+   │  └─ Store current frame           (Save to circular buffer)
+   │  └─ pastFrames[N].end()
+   │
+   └─ incIndex()                       (Advance buffer position)
+            </pre>
+        </div>
+
+        <h3>The Update Function</h3>
+
+<pre><code><span class="comment">// update() is called BEFORE draw() every frame</span>
+<span class="comment">// This is where we update state, not render graphics</span>
+
+<span class="keyword">void</span> ofApp::<span class="function">update</span>() {
+    <span class="comment">/********** STEP 1: UPDATE AUDIO ANALYSIS **********/</span>
+    fft.update(); <span class="comment">// Analyze latest audio buffer from sound card</span>
+
+    <span class="comment">/********** STEP 2: UPDATE VIDEO INPUT **********/</span>
+    inputUpdate(); <span class="comment">// Grab latest camera frame</span>
+
+    <span class="comment">/********** STEP 3: PROCESS MIDI MESSAGES **********/</span>
+    midibiz(); <span class="comment">// Handle all MIDI received since last frame</span>
+
+    <span class="comment">/********** STEP 4: UPDATE AUTOMATION **********/</span>
+    p_lockUpdate(); <span class="comment">// Read current P-Lock values</span>
+
+    <span class="comment">/********** STEP 5: TRACK MAXIMUM FFT VALUE **********/</span>
+    <span class="comment">// Used for auto-normalizing audio reactivity</span>
+    <span class="keyword">if</span> (fft.getLowVal() > my_normalize) {
+        my_normalize = fft.getLowVal();
+    }
+}</code></pre>
+
+        <h3>The Draw Function (Simplified Walkthrough)</h3>
+
+<pre><code><span class="keyword">void</span> ofApp::<span class="function">draw</span>() {
+    <span class="comment">/********** PREPARATION PHASE **********/</span>
+
+    <span class="comment">// STEP 1: Process audio to get smoothed frequency bands</span>
+    fftAssignValues();
+
+    <span class="comment">// STEP 2: Calculate all effect parameters</span>
+    <span class="comment">// This combines MIDI, P-Locks, and audio reactivity</span>
+    parametersAssign();
+
+    <span class="comment">/********** PRIMARY EFFECTS PASS **********/</span>
+
+    <span class="comment">// STEP 3: Begin rendering to framebuffer0</span>
+    framebuffer0.begin();
+
+    <span class="comment">// STEP 4: Activate the mixer shader</span>
+    shader_mixer.begin();
+
+    <span class="comment">// STEP 5: Draw camera input (this becomes tex0 in shader)</span>
+    cam1.draw(<span class="number">0</span>, <span class="number">0</span>, <span class="number">640</span>, <span class="number">480</span>);
+
+    <span class="comment">// STEP 6: Send all parameters to shader</span>
+    <span class="comment">// These are called "uniforms" - values that stay constant per frame</span>
+    shader_mixer.setUniformTexture(<span class="string">"fb"</span>,
+        pastFrames[d_delay].getTexture(), <span class="number">1</span>);
+    shader_mixer.setUniformTexture(<span class="string">"temporalFilter"</span>,
+        pastFrames[(abs(framedelayoffset - framebufferLength) - <span class="number">1</span>) %
+        framebufferLength].getTexture(), <span class="number">2</span>);
+
+    <span class="comment">// Send all continuous parameters</span>
+    shader_mixer.setUniform1f(<span class="string">"lumakey"</span>, d_lumakey_value);
+    shader_mixer.setUniform1f(<span class="string">"fbMix"</span>, d_mix);
+    shader_mixer.setUniform1f(<span class="string">"fbHue"</span>, d_hue);
+    shader_mixer.setUniform1f(<span class="string">"fbSaturation"</span>, d_sat);
+    shader_mixer.setUniform1f(<span class="string">"fbBright"</span>, d_bright);
+    <span class="comment">// ... (many more parameters)</span>
+
+    <span class="comment">// Send switches</span>
+    shader_mixer.setUniform1i(<span class="string">"toroidSwitch"</span>, toroidSwitch);
+    shader_mixer.setUniform1i(<span class="string">"mirrorSwitch"</span>, mirrorSwitch);
+    <span class="comment">// ... (more switches)</span>
+
+    <span class="comment">// STEP 7: Shader processes every pixel in parallel!</span>
+    shader_mixer.end();
+    framebuffer0.end();
+
+    <span class="comment">/********** SHARPENING PASS **********/</span>
+
+    <span class="comment">// STEP 8: Apply sharpening to processed image</span>
+    sharpenFramebuffer.begin();
+    shaderSharpen.begin();
+    framebuffer0.draw(<span class="number">0</span>, <span class="number">0</span>); <span class="comment">// Draw processed image</span>
+    shaderSharpen.setUniform1f(<span class="string">"sharpenAmount"</span>, d_sharpenAmount);
+    shaderSharpen.setUniform1f(<span class="string">"vSharpenAmount"</span>, vSharpenAmount * c_sharpenAmount);
+    shaderSharpen.end();
+    sharpenFramebuffer.end();
+
+    <span class="comment">/********** DISPLAY TO SCREEN **********/</span>
+
+    <span class="comment">// STEP 9: Draw final result to screen</span>
+    sharpenFramebuffer.draw(<span class="number">0</span>, <span class="number">0</span>, ofGetWidth(), ofGetHeight());
+
+    <span class="comment">/********** SAVE TO CIRCULAR BUFFER **********/</span>
+
+    <span class="comment">// STEP 10: Store this frame for future delay effects</span>
+    <span class="keyword">int</span> writeIndex = abs(framebufferLength - framedelayoffset) - <span class="number">1</span>;
+    pastFrames[writeIndex].begin();
+
+    <span class="keyword">if</span> (wet_dry_switch == <span class="number">1</span>) {
+        <span class="comment">// "Wet" mode: Store the processed output (feedback!)</span>
+        sharpenFramebuffer.draw(<span class="number">0</span>, <span class="number">0</span>);
+    } <span class="keyword">else</span> {
+        <span class="comment">// "Dry" mode: Store raw camera input (traditional delay)</span>
+        cam1.draw(<span class="number">0</span>, <span class="number">0</span>, <span class="number">640</span>, <span class="number">480</span>);
+    }
+
+    pastFrames[writeIndex].end();
+
+    <span class="comment">/********** ADVANCE TIME **********/</span>
+
+    <span class="comment">// STEP 11: Move to next position in circular buffer</span>
+    incIndex();
+
+    <span class="comment">// STEP 12: Advance P-Lock position if recording/playing</span>
+    <span class="keyword">if</span> (p_lock_switch == <span class="number">1</span>) {
+        p_lock_increment++;
+        p_lock_increment = p_lock_increment % p_lock_size;
+    }
+}</code></pre>
+
+        <div class="callout success">
+            <div class="callout-title">🎯 Understanding "Wet" vs "Dry" Feedback</div>
+            <p><strong>Dry mode (traditional video delay):</strong></p>
+            <ul>
+                <li>Store clean camera frames in buffer</li>
+                <li>Mix clean past frames with current frame</li>
+                <li>Result: Classic "echo" effect</li>
+            </ul>
+            <p><strong>Wet mode (feedback loop):</strong></p>
+            <ul>
+                <li>Store processed output in buffer</li>
+                <li>Process past processed frames again</li>
+                <li>Result: Compounding, evolving, chaotic effects</li>
+                <li>Like pointing a camera at its own monitor!</li>
+            </ul>
+            <p>
+                Wet mode can create infinite tunnels, fractals, and psychedelic patterns because
+                effects stack on themselves.
+            </p>
+        </div>
+
+        <h2 id="patterns">9. 💻 C++ Patterns & Best Practices</h2>
+
+        <h3>Header Files vs Implementation Files</h3>
+
+<pre><code><span class="comment">// ofApp.h - HEADER FILE (declarations)</span>
+<span class="comment">// This is like a "table of contents" for the class</span>
+
+<span class="keyword">class</span> ofApp : <span class="keyword">public</span> ofBaseApp, <span class="keyword">public</span> ofxMidiListener {
+<span class="keyword">public</span>:
+    <span class="comment">// Function declarations (no implementation)</span>
+    <span class="keyword">void</span> setup();
+    <span class="keyword">void</span> update();
+    <span class="keyword">void</span> draw();
+
+    <span class="comment">// Member variables</span>
+    ofShader shader_mixer;
+    ofVideoGrabber cam1;
+};
+
+<span class="comment">// ofApp.cpp - IMPLEMENTATION FILE (definitions)</span>
+<span class="comment">// This contains the actual code</span>
+
+<span class="keyword">void</span> ofApp::<span class="function">setup</span>() {
+    <span class="comment">// Implementation goes here</span>
+    ofSetFrameRate(<span class="number">30</span>);
+}</code></pre>
+
+        <div class="callout info">
+            <div class="callout-title">📚 Why Separate Headers and Implementation?</div>
+            <p><strong>Historical reasons:</strong></p>
+            <ul>
+                <li>Speeds up compilation (only recompile changed files)</li>
+                <li>Allows circular dependencies</li>
+                <li>Hides implementation details</li>
+            </ul>
+            <p><strong>Think of it like:</strong></p>
+            <ul>
+                <li><strong>.h file</strong> = Book cover and table of contents</li>
+                <li><strong>.cpp file</strong> = The actual chapters</li>
+            </ul>
+        </div>
+
+        <h3>Class Inheritance</h3>
+
+<pre><code><span class="comment">// Our class inherits from TWO base classes</span>
+<span class="keyword">class</span> ofApp : <span class="keyword">public</span> ofBaseApp, <span class="keyword">public</span> ofxMidiListener {
+
+<span class="comment">// What does this mean?</span>
+<span class="comment">// 1. ofBaseApp provides setup(), update(), draw() structure</span>
+<span class="comment">// 2. ofxMidiListener provides newMidiMessage() callback</span>
+<span class="comment">// 3. ofApp MUST implement these methods</span>
+
+<span class="comment">// This is called MULTIPLE INHERITANCE</span></code></pre>
+
+        <div class="callout warning">
+            <div class="callout-title">⚠️ Virtual Functions & Polymorphism</div>
+            <p>
+                When a class inherits from a base class with <code>virtual</code> functions, it can
+                <em>override</em> them. openFrameworks calls these overridden functions automatically:
+            </p>
+            <ul>
+                <li>oF calls <code>setup()</code> → your <code>ofApp::setup()</code> runs</li>
+                <li>oF calls <code>update()</code> → your <code>ofApp::update()</code> runs</li>
+                <li>MIDI system calls <code>newMidiMessage()</code> → your <code>ofApp::newMidiMessage()</code> runs</li>
+            </ul>
+            <p>
+                This is the <strong>Template Method Pattern</strong> - the framework provides the structure,
+                you fill in the behavior.
+            </p>
+        </div>
+
+        <h3>Arrays vs Vectors</h3>
+
+<pre><code><span class="comment">// C-style array (fixed size, allocated at compile time)</span>
+ofFbo pastFrames[<span class="number">60</span>];
+
+<span class="comment">// Vector (dynamic size, can grow/shrink)</span>
+std::vector&lt;ofxMidiMessage&gt; midiMessages;
+
+<span class="comment">// When to use each?</span>
+<span class="comment">// ARRAY: Size known at compile time, need max performance</span>
+<span class="comment">// VECTOR: Size varies, need flexibility</span>
+
+<span class="comment">// Examples:</span>
+
+<span class="comment">// Array access (fast, but no bounds checking!)</span>
+pastFrames[<span class="number">5</span>].draw(<span class="number">0</span>, <span class="number">0</span>);
+
+<span class="comment">// Vector access</span>
+midiMessages.push_back(newMessage);  <span class="comment">// Add to end</span>
+midiMessages.erase(midiMessages.begin());  <span class="comment">// Remove from start</span>
+<span class="keyword">int</span> size = midiMessages.size();  <span class="comment">// Get current size</span></code></pre>
+
+        <h3>Pass by Reference</h3>
+
+<pre><code><span class="comment">// Pass by VALUE (copies the data)</span>
+<span class="keyword">void</span> <span class="function">processMessage</span>(ofxMidiMessage msg) {
+    <span class="comment">// 'msg' is a COPY - changes don't affect original</span>
+}
+
+<span class="comment">// Pass by REFERENCE (works with original data)</span>
+<span class="keyword">void</span> <span class="function">processMessage</span>(ofxMidiMessage& msg) {
+    <span class="comment">// 'msg' refers to original - changes DO affect it</span>
+    <span class="comment">// MUCH faster for large objects (no copying!)</span>
+}
+
+<span class="comment">// Pass by CONST REFERENCE (read-only, no copy)</span>
+<span class="keyword">void</span> <span class="function">processMessage</span>(<span class="keyword">const</span> ofxMidiMessage& msg) {
+    <span class="comment">// Best of both: fast + safe (can't modify original)</span>
+}</code></pre>
+
+        <div class="callout success">
+            <div class="callout-title">✅ Reference Best Practice</div>
+            <p><strong>Rule of thumb:</strong></p>
+            <ul>
+                <li><strong>Primitives</strong> (int, float, bool): Pass by value</li>
+                <li><strong>Objects you modify</strong>: Pass by reference <code>&</code></li>
+                <li><strong>Objects you read</strong>: Pass by const reference <code>const &</code></li>
+            </ul>
+            <p>
+                This code uses references extensively for MIDI messages to avoid copying large data structures
+                every frame.
+            </p>
+        </div>
+
+        <h3>Preprocessor Directives</h3>
+
+<pre><code><span class="comment">// #define creates a text substitution</span>
+<span class="keyword">#define</span> MIDI_MAGIC <span class="number">63.50f</span>
+<span class="keyword">#define</span> CONTROL_THRESHOLD <span class="number">0.035f</span>
+
+<span class="comment">// Every time the compiler sees MIDI_MAGIC, it replaces it with 63.50f</span>
+<span class="comment">// This happens BEFORE compilation (preprocessing)</span>
+
+<span class="comment">// Usage:</span>
+<span class="keyword">float</span> bipolar = (message.value - MIDI_MAGIC) / MIDI_MAGIC;
+
+<span class="comment">// Becomes:</span>
+<span class="keyword">float</span> bipolar = (message.value - <span class="number">63.50f</span>) / <span class="number">63.50f</span>;
+
+<span class="comment">// WHY USE #define?</span>
+<span class="comment">// 1. Magic numbers are bad - MIDI_MAGIC is self-documenting</span>
+<span class="comment">// 2. Easy to change in one place</span>
+<span class="comment">// 3. No memory overhead (pure text replacement)</span>
+
+<span class="comment">// MODERN C++ ALTERNATIVE:</span>
+<span class="keyword">const float</span> MIDI_MAGIC = <span class="number">63.50f</span>; <span class="comment">// Type-safe constant</span></code></pre>
+
+        <h3>Boolean Logic Patterns</h3>
+
+<pre><code><span class="comment">// Toggle pattern (flip between true/false)</span>
+<span class="keyword">if</span> (key == <span class="string">'2'</span>) {
+    brightInvert = !brightInvert; <span class="comment">// ! means "NOT"</span>
+}
+
+<span class="comment">// Latch pattern (set to specific value)</span>
+<span class="keyword">if</span> (message.value == <span class="number">127</span>) {
+    videoReactiveSwitch = <span class="number">1</span>; <span class="comment">// Button pressed = ON</span>
+}
+<span class="keyword">if</span> (message.value == <span class="number">0</span>) {
+    videoReactiveSwitch = <span class="number">0</span>; <span class="comment">// Button released = OFF</span>
+}
+
+<span class="comment">// Using booleans in arithmetic (C++ specific)</span>
+<span class="keyword">int</span> multiplier = toroidSwitch ? <span class="number">2</span> : <span class="number">1</span>; <span class="comment">// Ternary operator</span>
+
+<span class="comment">// In shader (GLSL), booleans are integers:</span>
+<span class="comment">// true = 1, false = 0</span>
+<span class="keyword">if</span> (horizontalMirror == <span class="number">1</span>) { <span class="comment">// GLSL uses == 1</span></code></pre>
+
+        <h3>Memory Management Patterns</h3>
+
+<pre><code><span class="comment">// STACK ALLOCATION (automatic cleanup)</span>
+<span class="keyword">void</span> <span class="function">someFunction</span>() {
+    ofFbo localBuffer; <span class="comment">// Created on stack</span>
+    localBuffer.allocate(<span class="number">640</span>, <span class="number">480</span>);
+    <span class="comment">// Automatically destroyed when function ends</span>
+}
+
+<span class="comment">// MEMBER VARIABLES (lifetime tied to object)</span>
+<span class="keyword">class</span> ofApp {
+    ofFbo framebuffer0; <span class="comment">// Lives as long as ofApp lives</span>
+    ofShader shader_mixer;
+};
+
+<span class="comment">// GPU MEMORY (must explicitly allocate)</span>
+framebuffer0.allocate(width, height); <span class="comment">// Allocate GPU memory</span>
+<span class="comment">// oF handles cleanup in destructor</span>
+
+<span class="comment">// ARRAY OF OBJECTS</span>
+ofFbo pastFrames[<span class="number">60</span>]; <span class="comment">// 60 objects created</span>
+<span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i < <span class="number">60</span>; i++) {
+    pastFrames[i].allocate(width, height); <span class="comment">// Each needs GPU memory</span>
+}</code></pre>
+
+        <div class="callout warning">
+            <div class="callout-title">🧠 Understanding Object Lifetime</div>
+            <p>
+                In C++, objects are destroyed when they go out of scope:
+            </p>
+            <ul>
+                <li><strong>Local variables:</strong> Destroyed at end of function</li>
+                <li><strong>Member variables:</strong> Destroyed when parent object is destroyed</li>
+                <li><strong>Global variables:</strong> Destroyed when program exits</li>
+            </ul>
+            <p>
+                openFrameworks handles most cleanup for you, but understanding this is crucial for
+                avoiding memory leaks in larger projects.
+            </p>
+        </div>
+
+        <h2>🎓 Learning Path & Next Steps</h2>
+
+        <div class="callout success">
+            <div class="callout-title">✨ What You've Learned</div>
+            <p>By studying this project, you now understand:</p>
+            <ol>
+                <li><strong>openFrameworks structure:</strong> setup/update/draw lifecycle</li>
+                <li><strong>Framebuffer management:</strong> Circular buffers and GPU memory</li>
+                <li><strong>GLSL shaders:</strong> GPU parallel processing for real-time effects</li>
+                <li><strong>MIDI integration:</strong> Hardware control and soft takeover</li>
+                <li><strong>DSP basics:</strong> FFT, frequency bands, smoothing</li>
+                <li><strong>Parameter automation:</strong> Recording and playback</li>
+                <li><strong>Color theory:</strong> RGB/HSB conversion and manipulation</li>
+                <li><strong>C++ patterns:</strong> Inheritance, references, memory management</li>
+            </ol>
+        </div>
+
+        <h3>Suggested Experiments</h3>
+
+        <ol>
+            <li><strong>Modify shader effects:</strong> Try changing color transformations in <code>shader_mixer.frag</code></li>
+            <li><strong>Add new parameters:</strong> Create a new MIDI control for a custom effect</li>
+            <li><strong>Change buffer size:</strong> Experiment with longer/shorter video delays</li>
+            <li><strong>Audio visualization:</strong> Display FFT values on screen</li>
+            <li><strong>Multiple cameras:</strong> Add support for blending two video inputs</li>
+            <li><strong>Save recordings:</strong> Add ability to export video sequences</li>
+        </ol>
+
+        <h3>Resources for Further Learning</h3>
+
+        <table>
+            <tr>
+                <th>Topic</th>
+                <th>Resource</th>
+            </tr>
+            <tr>
+                <td><strong>openFrameworks</strong></td>
+                <td><a href="https://openframeworks.cc">openframeworks.cc</a> - Official tutorials and docs</td>
+            </tr>
+            <tr>
+                <td><strong>GLSL Shaders</strong></td>
+                <td><a href="https://thebookofshaders.com">The Book of Shaders</a> - Interactive shader learning</td>
+            </tr>
+            <tr>
+                <td><strong>DSP & Audio</strong></td>
+                <td>"Designing Sound" by Andy Farnell - DSP fundamentals</td>
+            </tr>
+            <tr>
+                <td><strong>C++ Basics</strong></td>
+                <td>"C++ Primer" by Lippman - Comprehensive C++ guide</td>
+            </tr>
+            <tr>
+                <td><strong>Creative Coding</strong></td>
+                <td><a href="https://processing.org">Processing</a> - Easier environment to start</td>
+            </tr>
+        </table>
+
+        <h3>Project Architecture Diagram</h3>
+
+        <div class="diagram">
+            <pre style="font-size: 0.8em;">
+┌─────────────────────────────────────────────────────────────┐
+│                      APPLICATION LAYER                       │
+│  (ofApp.cpp - Main logic, C++ code running on CPU)         │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐  │
+│  │  MIDI    │  │  Camera  │  │   FFT    │  │ P-Locks  │  │
+│  │  Input   │  │  Input   │  │  Audio   │  │Parameter │  │
+│  │ofxMidi   │  │ofVideo   │  │  Anal.   │  │Automation│  │
+│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘  │
+│       └────────────┬┴────────────┬─┴───────────┬─┘         │
+│                    ↓             ↓             ↓            │
+│            ┌─────────────────────────────────────┐          │
+│            │    PARAMETER ASSIGNMENT SYSTEM      │          │
+│            │  (Combines all control sources)     │          │
+│            └─────────────┬───────────────────────┘          │
+│                          ↓                                   │
+├─────────────────────────────────────────────────────────────┤
+│                     GPU PROCESSING LAYER                     │
+│              (GLSL shaders running on GPU)                  │
+│                                                              │
+│  ┌────────────────┐    ┌────────────────┐                  │
+│  │ Mixer Shader   │    │Sharpen Shader  │                  │
+│  │ - Color Trans. │ → │ - Edge Enhance │ → Screen         │
+│  │ - Geometry     │    │ - Convolution  │                  │
+│  │ - Feedback     │    └────────────────┘                  │
+│  └────┬───────────┘                                         │
+│       ↓                                                      │
+│  ┌────────────────────────────┐                            │
+│  │   Circular Frame Buffer    │                            │
+│  │   (60 frames in GPU RAM)   │                            │
+│  └────────────────────────────┘                            │
+└─────────────────────────────────────────────────────────────┘
+            </pre>
+        </div>
+
+        <h3>Final Thoughts</h3>
+
+        <p>
+            This project is an excellent example of <strong>real-time creative coding</strong> - it combines
+            computer graphics, digital signal processing, hardware integration, and artistic expression.
+            The architecture demonstrates professional patterns while remaining comprehensible.
+        </p>
+
+        <p>
+            Key takeaways:
+        </p>
+
+        <ul>
+            <li><strong>Separation of concerns:</strong> Audio, video, MIDI, and rendering are cleanly separated</li>
+            <li><strong>GPU acceleration:</strong> Heavy lifting done in parallel on graphics card</li>
+            <li><strong>Efficient memory use:</strong> Circular buffers reuse the same memory</li>
+            <li><strong>Live performance focus:</strong> All processing happens in real-time with no latency</li>
+            <li><strong>Modularity:</strong> Easy to add new effects or control sources</li>
+        </ul>
+
+        <p>
+            Keep experimenting, keep coding, and most importantly - have fun creating visual art with code! 🎨
+        </p>
+
+        <hr style="margin: 40px 0; border: none; border-top: 2px solid #e0e0e0;">
+
+        <p style="text-align: center; color: #7f8c8d; font-size: 0.9em;">
+            <strong>AUTO_WAAAVE Educational Guide</strong><br/>
+            A comprehensive learning resource for openFrameworks, C++, and real-time video synthesis<br/>
+            <em>Generated March 2026</em>
+        </p>
+    </div>
+</body>
+</html>
