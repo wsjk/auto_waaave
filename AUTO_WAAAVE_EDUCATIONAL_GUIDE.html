@@ -245,14 +245,15 @@
             <h3>📚 Table of Contents</h3>
             <ul>
                 <li><a href="#overview">1. Project Overview & Architecture</a></li>
-                <li><a href="#setup">2. Application Setup & Initialization</a></li>
-                <li><a href="#framebuffers">3. Framebuffer Management & Circular Buffers</a></li>
-                <li><a href="#shaders">4. GPU Shaders & Video Effects</a></li>
-                <li><a href="#midi">5. MIDI Control System</a></li>
-                <li><a href="#audio">6. Audio Reactivity & FFT</a></li>
-                <li><a href="#plocks">7. Parameter Locks (Automation)</a></li>
-                <li><a href="#render">8. The Render Pipeline</a></li>
-                <li><a href="#patterns">9. C++ Patterns & Best Practices</a></li>
+                <li><a href="#user-manual">2. User Manual & Controls</a></li>
+                <li><a href="#setup">3. Application Setup & Initialization</a></li>
+                <li><a href="#framebuffers">4. Framebuffer Management & Circular Buffers</a></li>
+                <li><a href="#shaders">5. GPU Shaders & Video Effects</a></li>
+                <li><a href="#midi">6. MIDI Control System</a></li>
+                <li><a href="#audio">7. Audio Reactivity & FFT</a></li>
+                <li><a href="#plocks">8. Parameter Locks (Automation)</a></li>
+                <li><a href="#render">9. The Render Pipeline</a></li>
+                <li><a href="#patterns">10. C++ Patterns & Best Practices</a></li>
             </ul>
         </div>
 
@@ -336,7 +337,373 @@
             </tr>
         </table>
 
-        <h2 id="setup">2. 🚀 Application Setup & Initialization</h2>
+        <h2 id="user-manual">2. 🎛️ User Manual & Controls</h2>
+
+        <p>
+            This section documents the complete control interface for AUTO_WAAAVE, including MIDI mappings,
+            keyboard shortcuts, and parameter explanations. The system is designed to work with various
+            controllers, with default mappings optimized for the Korg nanoKONTROL2.
+        </p>
+
+        <div class="callout info">
+            <div class="callout-title">💡 About Control Systems</div>
+            <p>
+                AUTO_WAAAVE supports multiple input methods:
+            </p>
+            <ul>
+                <li><strong>MIDI Controllers</strong> - External hardware controllers via USB (recommended)</li>
+                <li><strong>Keyboard</strong> - Computer keyboard for basic control</li>
+                <li><strong>Video Reactive</strong> - Brightness-based modulation of parameters</li>
+                <li><strong>Motion Recording</strong> - 8-second automation loops</li>
+            </ul>
+        </div>
+
+        <h3>Knob & Slider Parameters</h3>
+
+        <p>The following parameters can be controlled via MIDI CC messages or keyboard shortcuts:</p>
+
+        <h4>1. Luma Key Level (U) - MIDI CC 16</h4>
+        <p>
+            Controls brightness-based keying of the framebuffer into the input video.
+            Values from 0-1 determine the threshold for keying.
+        </p>
+        <ul>
+            <li><strong>0.0</strong> - No framebuffer visible</li>
+            <li><strong>0.5</strong> - Keys out/in everything below/above 50% brightness</li>
+            <li><strong>1.0</strong> - Input completely replaced by framebuffer</li>
+            <li><strong>Toggle Switch</strong> - Reverses between keying blacks vs whites</li>
+        </ul>
+        <p><em>Keyboard: k / , (increment/decrement)</em></p>
+
+        <h4>2. Mix Level (B) - MIDI CC 17 - Range: (-1.1, 1.1)</h4>
+        <p>
+            Linear interpolation between input video and framebuffer. Values outside 0-1 create distortions.
+        </p>
+        <ul>
+            <li><strong>0.0</strong> - Pure input video</li>
+            <li><strong>0.5</strong> - 50/50 blend</li>
+            <li><strong>1.0</strong> - Pure framebuffer</li>
+            <li><strong>&lt; 0 or &gt; 1</strong> - Interesting distortions and strobing effects</li>
+        </ul>
+        <p><em>Formula: <code>output = input * (1 - mix) + framebuffer * mix</code></em></p>
+        <p><em>Keyboard: j / m</em></p>
+
+        <h4>3. Hue Attenuation (B) - MIDI CC 18 - Range: (0.25, 1.75)</h4>
+        <p>
+            Multiplier for framebuffer hue. Due to feedback, multiplicative operations have exponential effects.
+        </p>
+        <ul>
+            <li><strong>1.0</strong> - No change</li>
+            <li><strong>&gt; 1.0</strong> - Cycles through color spectrum</li>
+            <li><strong>&lt; 1.0</strong> - Slower color shifts</li>
+        </ul>
+        <p><em>Keyboard: f / v</em></p>
+
+        <h4>4. Saturation Attenuation (B) - MIDI CC 19 - Range: (0.5, 1.5)</h4>
+        <p>Multiplier for framebuffer saturation.</p>
+        <ul>
+            <li><strong>0.0</strong> - Grayscale feedback</li>
+            <li><strong>1.0</strong> - No change</li>
+            <li><strong>&gt; 1.0</strong> - Supersaturated colors</li>
+        </ul>
+        <p><em>Keyboard: g / b</em></p>
+
+        <h4>5. Brightness Attenuation (B) - MIDI CC 20 - Range: (0.5, 1.5)</h4>
+        <p>Multiplier for framebuffer brightness.</p>
+        <ul>
+            <li><strong>~0.8-0.9</strong> - Trails fade softly</li>
+            <li><strong>1.0</strong> - Brightness maintained</li>
+            <li><strong>&gt; 1.0</strong> - Brightens and clamps to white</li>
+        </ul>
+        <p><em>Keyboard: h / n</em></p>
+
+        <h4>6. Temporal Filter Mix (B) - MIDI CC 21 - Range: (-1.1, 1.1)</h4>
+        <p>Blends current frame with previous frame to smooth or enhance feedback.</p>
+        <ul>
+            <li><strong>0.0-0.99</strong> - Smooths harshness and strobing</li>
+            <li><strong>&gt; 1.0</strong> - Digital feedback mode (wet oil painting effect)</li>
+            <li><strong>&lt; 0.0</strong> - Creates patterns and possible strobing</li>
+        </ul>
+        <p><em>Keyboard: o / p</em></p>
+
+        <h4>7. Temporal Filter Strength (U) - MIDI CC 22</h4>
+        <p>Attenuates brightness and saturation of temporal filter for complex pattern formation.</p>
+        <p><em>Keyboard: ; / '</em></p>
+
+        <h4>8. Sharpen (U) - MIDI CC 23 - Range: (0, 1)</h4>
+        <p>Applies sharpening filter to feedback, creating intricate worm-like patterns.</p>
+        <p><em>Keyboard: l / .</em></p>
+
+        <h3>Displacement & Transformation Controls (Sliders)</h3>
+
+        <div class="callout warning">
+            <div class="callout-title">⚠️ Range Buttons (nanoKONTROL2)</div>
+            <p>
+                Each slider has 3 buttons (S/M/R) for Small/Medium/Ridiculous ranges.
+                Larger buttons override smaller ones. Ridiculous + Toroidal = Fractal Mode!
+            </p>
+        </div>
+
+        <h4>9. X Displacement (B) - MIDI CC 120</h4>
+        <p>Horizontal pixel offset of framebuffer feedback.</p>
+        <ul>
+            <li><strong>Default:</strong> (-6.4, 6.4) pixels</li>
+            <li><strong>Medium (CC 32):</strong> (-12.8, 12.8)</li>
+            <li><strong>Large (CC 48):</strong> (-32, 32)</li>
+            <li><strong>Ridiculous (CC 64):</strong> (-64, 64)</li>
+        </ul>
+        <p><em>Internal resolution is 640x480, so ±64px = ±10% of screen width</em></p>
+        <p><em>Keyboard: s / x</em></p>
+
+        <h4>10. Y Displacement (B) - MIDI CC 121</h4>
+        <p>Vertical pixel offset of framebuffer feedback.</p>
+        <ul>
+            <li><strong>Default:</strong> (-4.8, 4.8)</li>
+            <li><strong>Medium (CC 33):</strong> (-9.6, 9.6)</li>
+            <li><strong>Large (CC 49):</strong> (-24, 24)</li>
+            <li><strong>Ridiculous (CC 65):</strong> (-48, 48)</li>
+        </ul>
+        <p><em>Keyboard: d / c</em></p>
+
+        <h4>11. Z Displacement (Zoom) (B) - MIDI CC 122</h4>
+        <p>Scale multiplier for framebuffer (zoom in/out).</p>
+        <ul>
+            <li><strong>Default:</strong> (0.95, 1.05)</li>
+            <li><strong>Medium (CC 34):</strong> (0.9, 1.1)</li>
+            <li><strong>Large (CC 50):</strong> (0.75, 1.25)</li>
+            <li><strong>Ridiculous (CC 66):</strong> (0.5, 1.5)</li>
+        </ul>
+        <p><em>1.5 = 150% size (zoom in), 0.5 = 50% size (zoom out)</em></p>
+        <p><em>Keyboard: a / z</em></p>
+
+        <h4>12. Rotation (B) - MIDI CC 123</h4>
+        <p>Rotational offset in radians. Default ranges create 5-fold symmetry (not 4-fold, which can be harsh).</p>
+        <ul>
+            <li><strong>Default:</strong> (-π/10, π/10)</li>
+            <li><strong>Medium (CC 35):</strong> (-π/5, π/5)</li>
+            <li><strong>Large (CC 51):</strong> (-2π/5, 2π/5)</li>
+            <li><strong>Ridiculous (CC 67):</strong> (-8π/5, 8π/5)</li>
+        </ul>
+        <p><em>Keyboard: q / w</em></p>
+
+        <h4>13. Chaotic Hue Mod (U) - MIDI CC 124</h4>
+        <p>Limits the hue cycling range. High values = restricted palette, low values = full spectrum.</p>
+        <p><em>Keyboard: e / r</em></p>
+
+        <h4>14. Chaotic Hue LFO (U) - MIDI CC 125</h4>
+        <p>Controls rate and texture of hue cycling. Small values = smooth shifts, large values = strobing.</p>
+        <p><em>Keyboard: t / y</em></p>
+
+        <h4>15. Chaotic Hue Offset (U) - MIDI CC 126</h4>
+        <p>Adds offset to hue. Use with restricted palette to select specific colors.</p>
+        <p><em>Keyboard: u / i</em></p>
+
+        <h4>16. Delay Time (U) - MIDI CC 127 - Range: (1-60 frames)</h4>
+        <p>
+            Framebuffer delay length. At 30 FPS, maximum is 2 seconds.
+            Behavior changes based on feedback vs feedforward mode.
+        </p>
+        <p><em>Keyboard: [ / ]</em></p>
+
+        <h3>Toggle Switches</h3>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Control</th>
+                    <th>MIDI CC</th>
+                    <th>Keyboard</th>
+                    <th>Function</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Brightness Invert</td>
+                    <td>43</td>
+                    <td>2</td>
+                    <td>Inverts framebuffer brightness</td>
+                </tr>
+                <tr>
+                    <td>Saturation Invert</td>
+                    <td>44</td>
+                    <td>4</td>
+                    <td>Inverts framebuffer saturation</td>
+                </tr>
+                <tr>
+                    <td>Hue Invert</td>
+                    <td>42</td>
+                    <td>3</td>
+                    <td>Inverts framebuffer hue</td>
+                </tr>
+                <tr>
+                    <td>Horizontal Mirror</td>
+                    <td>41</td>
+                    <td>6</td>
+                    <td>Mirrors framebuffer horizontally</td>
+                </tr>
+                <tr>
+                    <td>Vertical Mirror</td>
+                    <td>45</td>
+                    <td>5</td>
+                    <td>Mirrors framebuffer vertically</td>
+                </tr>
+                <tr>
+                    <td>Toroidal Universe</td>
+                    <td>46</td>
+                    <td>7</td>
+                    <td>Wraps edges (Pac-Man style) - creates fractals when zooming/rotating</td>
+                </tr>
+                <tr>
+                    <td>Luma Key Swap</td>
+                    <td>60</td>
+                    <td>-</td>
+                    <td>Toggles between keying blacks vs whites</td>
+                </tr>
+                <tr>
+                    <td>Framebuffer Reset</td>
+                    <td>58</td>
+                    <td>1</td>
+                    <td>Clears framebuffer (wiggle another control after to avoid stutter)</td>
+                </tr>
+                <tr>
+                    <td>Parameter Reset</td>
+                    <td>59</td>
+                    <td>! (Shift+1)</td>
+                    <td>Resets all parameters to defaults, clears motion recording</td>
+                </tr>
+                <tr>
+                    <td>Feedback/Feedforward</td>
+                    <td>71</td>
+                    <td>-</td>
+                    <td>Switches delay source: output (feedback) vs input (feedforward)</td>
+                </tr>
+                <tr>
+                    <td>Motion Recording</td>
+                    <td>39</td>
+                    <td>-</td>
+                    <td>Records 8-second parameter automation loop</td>
+                </tr>
+                <tr>
+                    <td>Video Reactive Mode</td>
+                    <td>-</td>
+                    <td>-</td>
+                    <td>Sliders control how much input brightness modulates parameters</td>
+                </tr>
+                <tr>
+                    <td>Mirror Mode</td>
+                    <td>-</td>
+                    <td>-</td>
+                    <td>Mirror wrapping (overrides toroidal if both active)</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>Understanding Parameter Notation</h3>
+
+        <div class="callout info">
+            <div class="callout-title">📖 Control Types</div>
+            <ul>
+                <li><strong>(U) = Unipolar:</strong> Values go from 0 to 1. Turn all the way left for 0, all the way right for 1.</li>
+                <li><strong>(B) = Bipolar:</strong> Values go from -1 to 1. Middle position (12 o'clock/center) = 0.</li>
+            </ul>
+            <p>
+                Most parameters are normalized (0-1 or -1 to 1), but some internally map to larger ranges
+                (e.g., -200% to +200%) for extreme effects.
+            </p>
+        </div>
+
+        <h3>Using MIDI Controllers</h3>
+
+        <h4>Custom MIDI Mapping</h4>
+        <p>
+            To use a different MIDI controller, you have three options:
+        </p>
+        <ol>
+            <li><strong>Scene Creation:</strong> Create a controller scene that remaps your device's CCs to AUTO_WAAAVE's default CCs</li>
+            <li><strong>Code Editing:</strong> Modify the MIDI CC values in the C++ source code</li>
+            <li><strong>Community Scenes:</strong> Check the Video_Waaaves Facebook group for existing controller mappings</li>
+        </ol>
+
+        <div class="callout warning">
+            <div class="callout-title">⚠️ MIDI Latching (v1.5+)</div>
+            <p>
+                MIDI latching prevents parameter jumps when first moving a control after boot or reset.
+                The parameter won't change until the physical control passes through its current value.
+            </p>
+            <p><strong>Example:</strong> If lumakey is at 0 internally but your knob is at max, turn the knob
+                all the way to 0 (left) before the parameter starts responding.</p>
+        </div>
+
+        <h3>Keyboard-Only Operation</h3>
+
+        <p>
+            If you don't have a MIDI controller, you can use keyboard controls. Hold down keys to
+            increment/decrement values. The default increment is intentionally small for precision.
+        </p>
+
+        <div class="callout warning">
+            <div class="callout-title">⚠️ Important for Keyboard Users</div>
+            <ul>
+                <li>Press and HOLD keys to see effects - single taps may not be visible</li>
+                <li>Make sure luma key is enabled to see feedback</li>
+                <li>If controls aren't working, try unplugging and replugging the keyboard while running</li>
+                <li>Using both MIDI and keyboard simultaneously can cause confusing offsets</li>
+            </ul>
+        </div>
+
+        <h3>Video Reactive Mode</h3>
+
+        <p>
+            When enabled, the brightness of the input video modulates parameters instead of directly controlling them.
+            Each slider/knob controls the <em>amount</em> of brightness modulation applied to its parameter.
+        </p>
+
+        <p><strong>To test:</strong></p>
+        <ol>
+            <li>Luma key out 75% of input so there's lots of feedback</li>
+            <li>Slide X-displace up a bit</li>
+            <li>Enable video reactive mode</li>
+            <li>Move X-displace in opposite direction (through 0 due to latching)</li>
+            <li>Displacement will now vary based on input brightness!</li>
+        </ol>
+
+        <h3>Troubleshooting</h3>
+
+        <h4>No Output (Analog Video)</h4>
+        <ol>
+            <li><strong>Check cable:</strong> Requires TRRS (4-conductor) 1/8" to RCA cable, CTIA standard</li>
+            <li><strong>Config.txt:</strong> Check HDMI hotplug settings in /boot/config.txt on SD card</li>
+            <li><strong>Test HDMI:</strong> Plug in HDMI while running - if video appears, it's a config issue</li>
+        </ol>
+
+        <h4>Keyboard Not Responding</h4>
+        <ul>
+            <li>Unplug and replug keyboard while program is running</li>
+            <li>Remember to hold keys down, not tap</li>
+            <li>Ensure luma key is active to see feedback</li>
+        </ul>
+
+        <h4>USB Device Conflicts</h4>
+        <p>
+            Only one MIDI controller and one camera can be used at a time with default settings.
+            All devices should be plugged in <em>before</em> powering on (no hot-swapping for USB).
+        </p>
+
+        <h3>Tips & Techniques</h3>
+
+        <div class="callout success">
+            <div class="callout-title">🎨 Creative Techniques</div>
+            <ul>
+                <li><strong>Smooth Trails:</strong> Brightness attenuation around 0.8-0.9</li>
+                <li><strong>Fractal Mode:</strong> Ridiculous displacement ranges + Toroidal Universe enabled</li>
+                <li><strong>Color Washing:</strong> Luma key off, mix ~0.5, temporal filter ~0.25, play with Chaotic Hue controls</li>
+                <li><strong>Reaction-Diffusion:</strong> Small displacement values (default ranges) create organic patterns</li>
+                <li><strong>Kaleidoscope:</strong> Rotation + mirrors + zoom</li>
+                <li><strong>Feedforward Processing:</strong> Switch to feedforward mode, luma key out input, process with all controls</li>
+            </ul>
+        </div>
+
+        <h2 id="setup">3. 🚀 Application Setup & Initialization</h2>
 
         <h3>The openFrameworks Lifecycle</h3>
 
@@ -440,7 +807,7 @@
             </p>
         </div>
 
-        <h2 id="framebuffers">3. 🎞️ Framebuffer Management & Circular Buffers</h2>
+        <h2 id="framebuffers">4. 🎞️ Framebuffer Management & Circular Buffers</h2>
 
         <h3>What is a Framebuffer?</h3>
 
@@ -605,7 +972,7 @@ shader_mixer.setUniformTexture(<span class="string">"fb"</span>, pastFrames[d_de
             </p>
         </div>
 
-        <h2 id="shaders">4. 🎨 GPU Shaders & Video Effects</h2>
+        <h2 id="shaders">5. 🎨 GPU Shaders & Video Effects</h2>
 
         <h3>What are Shaders?</h3>
 
@@ -962,7 +1329,7 @@ vec3 <span class="function">hsb2rgb</span>(in vec3 c) {
             </p>
         </div>
 
-        <h2 id="midi">5. 🎹 MIDI Control System</h2>
+        <h2 id="midi">6. 🎹 MIDI Control System</h2>
 
         <h3>What is MIDI?</h3>
 
@@ -1135,7 +1502,7 @@ vec3 <span class="function">hsb2rgb</span>(in vec3 c) {
 <span class="comment">// value = 64  → bipolar = 0.01 (almost center)</span>
 <span class="comment">// value = 127 → bipolar = 1.0 (far right)</span></code></pre>
 
-        <h2 id="audio">6. 🔊 Audio Reactivity & FFT</h2>
+        <h2 id="audio">7. 🔊 Audio Reactivity & FFT</h2>
 
         <h3>What is FFT?</h3>
 
@@ -1255,7 +1622,7 @@ d_hue = fv * (<span class="number">1.0f</span> + c_hue * p_lock_smoothed[<span c
             </p>
         </div>
 
-        <h2 id="plocks">7. 🔒 Parameter Locks (Automation)</h2>
+        <h2 id="plocks">8. 🔒 Parameter Locks (Automation)</h2>
 
         <h3>What are Parameter Locks?</h3>
 
@@ -1406,7 +1773,7 @@ d_z = az * (<span class="number">1.0f</span> + c_z * p_lock_smoothed[<span class
             </ul>
         </div>
 
-        <h2 id="render">8. 🎬 The Render Pipeline</h2>
+        <h2 id="render">9. 🎬 The Render Pipeline</h2>
 
         <h3>Frame Processing Flow</h3>
 
@@ -1587,7 +1954,7 @@ d_z = az * (<span class="number">1.0f</span> + c_z * p_lock_smoothed[<span class
             </p>
         </div>
 
-        <h2 id="patterns">9. 💻 C++ Patterns & Best Practices</h2>
+        <h2 id="patterns">10. 💻 C++ Patterns & Best Practices</h2>
 
         <h3>Header Files vs Implementation Files</h3>
 
